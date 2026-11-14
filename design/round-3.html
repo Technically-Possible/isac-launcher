@@ -1,0 +1,1001 @@
+<title>SHD ISAC Round 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap">
+<style>
+/* Layout: plain dark review board. Home directions as phone + notes side by side, then a 4-up row of screens, then system cards. One typeface throughout, as in the game. Single dark theme on purpose. */
+:root {
+  color-scheme: dark;
+  --board: #0b0c0d;
+  --board-raised: #131416;
+  --w: #f2f2f0;
+  --g2: rgba(242, 242, 240, .62);
+  --g3: rgba(242, 242, 240, .4);
+  --line: rgba(242, 242, 240, .12);
+  --acc: #ff6d10;
+  --armor: #dbe7f2;
+  --crit: #e8433a;
+  /* item rarity */
+  --exotic: #e0573b;
+  --highend: #e8b923;
+  --gearset: #2bbfa4;
+  --superior: #9b62e3;
+  --specialized: #3d8ee0;
+  --standard: #6dbb45;
+  --worn: #b9b9b9;
+  /* attribute colors */
+  --red: #e04848;
+  --blue: #3b8fe6;
+  --yellow: #f0c23b;
+  --f: "Titillium Web", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --sys: Roboto, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--board); }
+body {
+  background: var(--board); color: var(--w);
+  font: 400 16px/1.55 var(--f);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--board); }
+p { margin: 0; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+.wrap { max-width: 1300px; margin: 0 auto; padding-block: 44px 72px; }
+
+/* ---------- board chrome ---------- */
+.kick { font: 600 12px/1 var(--f); letter-spacing: .2em; text-transform: uppercase; color: var(--g2); display: flex; align-items: center; gap: 10px; }
+.kick::before { content: ""; width: 22px; height: 2px; background: var(--acc); }
+.intro { display: grid; gap: 14px; max-width: 780px; }
+.intro h1 { display: flex; align-items: center; gap: 14px; font: 700 clamp(40px, 7vw, 62px)/1 var(--f); letter-spacing: .04em; text-transform: uppercase; }
+.intro h1 svg { width: .72em; height: .72em; color: var(--acc); flex: none; }
+.intro h1 span { font-weight: 300; color: var(--g2); }
+.lede { font-size: 17px; color: var(--g2); max-width: 66ch; }
+.lede b { color: var(--w); font-weight: 600; }
+
+.toolbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 8;
+  display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center;
+  margin-top: 26px; padding-block: 12px; background: var(--board);
+  box-shadow: 0 0 0 100vmax var(--board); clip-path: inset(0 -100vmax); border-bottom: 1px solid var(--line);
+}
+.tool { display: flex; align-items: center; gap: 10px; }
+.tool-l { font: 600 11px var(--f); letter-spacing: .18em; text-transform: uppercase; color: var(--g3); }
+.seg-ctl { display: flex; border: 1px solid var(--line); }
+.seg-ctl button { font: 600 12px var(--f); letter-spacing: .12em; text-transform: uppercase; padding: 5px 12px; background: none; border: 0; color: var(--g2); cursor: pointer; }
+.seg-ctl button[aria-pressed="true"] { background: var(--w); color: #111; }
+button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+.sec { margin-top: 64px; display: grid; gap: 30px; }
+.sec-h { display: grid; gap: 8px; max-width: 72ch; }
+.sec-h h2 { font: 700 32px/1.1 var(--f); letter-spacing: .04em; text-transform: uppercase; }
+.sec-h p { color: var(--g2); }
+
+.dirs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px; }
+.mock { margin: 0; display: grid; gap: 20px; align-content: start; }
+.mock.side { grid-template-columns: 300px minmax(0, 1fr); gap: 28px; }
+.mock figcaption { display: grid; gap: 10px; align-content: start; max-width: 300px; }
+.mock.side figcaption { max-width: 40ch; padding-top: 10px; }
+.mock h3 { font: 700 22px/1.15 var(--f); letter-spacing: .06em; text-transform: uppercase; }
+.mock .dk { font: 600 11px var(--f); letter-spacing: .2em; text-transform: uppercase; color: var(--acc); }
+.mock figcaption > p { color: var(--g2); font-size: 15px; }
+.notes { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 9px; font-size: 14.5px; }
+.notes li { display: grid; grid-template-columns: 10px 1fr; gap: 10px; }
+.notes li::before { content: ""; width: 6px; height: 6px; margin-top: 9px; border: 1.5px solid var(--g2); transform: rotate(45deg); }
+.notes b { font-weight: 600; }
+.flow { display: grid; grid-template-columns: repeat(4, 300px); justify-content: space-between; gap: 44px 24px; }
+
+@media (max-width: 1299px) {
+  .dirs { grid-template-columns: 1fr; gap: 56px; }
+  .flow { grid-template-columns: repeat(2, 300px); justify-content: start; column-gap: 56px; }
+}
+@media (max-width: 699px) {
+  .mock.side, .flow { grid-template-columns: 1fr; justify-items: center; }
+  .mock.side figcaption, .mock figcaption { max-width: 300px; width: 100%; padding-top: 0; }
+}
+
+/* ---------- phone ---------- */
+.phone { width: 300px; height: 650px; padding: 8px; border-radius: 36px; flex: none; background: #1a1b1c; box-shadow: 0 0 0 1px #2e3032, 0 40px 70px -30px rgba(0, 0, 0, .9); }
+.screen { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 28px; background: #0c0d0e; color: var(--w); font-family: var(--f); isolation: isolate; }
+.screen > * { position: relative; z-index: 1; }
+.screen > .world, .screen > .shade, .screen > .wall, .screen > .under, .screen > .wp, .screen > .scrim, .screen > .under-intel { position: absolute; z-index: 0; }
+.sb { height: 24px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 24px; font: 500 11px var(--sys); color: #e6e6e4; font-variant-numeric: tabular-nums; }
+.sb .cam { position: absolute; left: 50%; top: 7px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: #000; box-shadow: 0 0 0 1.5px #232426; }
+.sb svg { width: 46px; height: 11px; }
+
+/* blurred world behind menus */
+.world { inset: -40px; filter: blur(13px) saturate(1.15); background:
+  radial-gradient(circle at 22% 30%, rgba(255, 176, 96, .8) 0 3px, transparent 30px),
+  radial-gradient(circle at 72% 24%, rgba(255, 205, 150, .6) 0 3px, transparent 34px),
+  radial-gradient(circle at 84% 52%, rgba(255, 140, 60, .55) 0 4px, transparent 38px),
+  radial-gradient(circle at 40% 62%, rgba(255, 170, 90, .4) 0 3px, transparent 30px),
+  radial-gradient(ellipse 70% 30% at 30% 85%, rgba(90, 120, 90, .45), transparent 70%),
+  linear-gradient(#3b4754 0%, #252e37 42%, #161b20 100%); }
+.world i { position: absolute; left: 0; right: 0; bottom: 18%; height: 46%; background: #0e1013; opacity: .85;
+  clip-path: polygon(0 40%, 10% 40%, 10% 18%, 22% 18%, 22% 34%, 34% 34%, 34% 6%, 44% 6%, 44% 28%, 58% 28%, 58% 12%, 70% 12%, 70% 30%, 82% 30%, 82% 0, 92% 0, 92% 26%, 100% 26%, 100% 100%, 0 100%); }
+.shade { inset: 0; background: linear-gradient(rgba(8, 9, 10, .5), rgba(8, 9, 10, .72) 40%, rgba(8, 9, 10, .82)); }
+
+/* reusable bits */
+.tabs { display: flex; align-items: stretch; justify-content: space-between; height: 34px; margin: 0 12px; border-bottom: 1px solid rgba(255, 255, 255, .13); }
+.tabs span { display: flex; align-items: center; position: relative; font: 600 11px/1 var(--f); letter-spacing: .14em; color: rgba(255, 255, 255, .45); }
+.tabs span.on { color: var(--w); }
+.tabs span.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--acc); }
+.bump { align-self: center; width: 17px; height: 14px; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, .35); font: 700 10px/1 var(--f); color: rgba(255, 255, 255, .7); }
+.prompts { position: absolute; left: 0; right: 0; bottom: 0; height: 34px; display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 16px 2px; background: rgba(0, 0, 0, .55); border-top: 1px solid rgba(255, 255, 255, .08); font: 600 9.5px/1 var(--f); letter-spacing: .12em; }
+.prompts span { display: flex; align-items: center; gap: 6px; }
+.key { display: inline-grid; place-items: center; width: 15px; height: 15px; background: var(--w); color: #111; font: 700 10px/1 var(--f); font-style: normal; flex: none; }
+.sect { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 14px 14px 7px; font: 600 9px/1 var(--f); letter-spacing: .18em; color: var(--g2); }
+.sect i { height: 1px; background: rgba(255, 255, 255, .13); }
+
+.gl { display: grid; place-items: center; width: var(--g, 22px); height: var(--g, 22px); color: var(--w); flex: none; }
+.gl svg { width: 100%; height: 100%; }
+.icons-original .gl { background: var(--c); border-radius: 26%; }
+.icons-original .gl svg { width: 60%; height: 60%; }
+
+.tile { position: relative; display: flex; align-items: center; gap: 9px; padding: 0 10px;
+  background: linear-gradient(to top, color-mix(in srgb, var(--r) 30%, transparent), transparent 78%), rgba(16, 17, 19, .72);
+  border: 1px solid rgba(255, 255, 255, .09); }
+.tile::after { content: ""; position: absolute; left: -1px; right: -1px; bottom: -1px; height: 2px; background: var(--r); }
+.tile.sel { outline: 1.5px solid var(--w); outline-offset: 1px; }
+.tile .tx b { display: block; font: 700 12px/1.05 var(--f); letter-spacing: .06em; text-transform: uppercase; }
+.tile .tx small { display: block; margin-top: 3px; font: 600 8.5px/1 var(--f); letter-spacing: .16em; color: var(--g2); }
+
+.armor { display: flex; gap: 2px; height: 7px; }
+.armor i { flex: 1; background: rgba(255, 255, 255, .15); }
+.armor i.on { background: var(--armor); }
+.armor i.next { animation: regen 1.3s ease-in-out infinite; }
+.p-crit .armor i.on { background: var(--crit); }
+.p-crit .pw-val { color: var(--crit); }
+
+.sk { position: relative; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid rgba(255, 255, 255, .6); background: rgba(0, 0, 0, .4); flex: none; }
+.sk svg { width: 16px; height: 16px; }
+.sk.cd { border-color: rgba(255, 255, 255, .2); }
+.sk.cd::before { content: ""; position: absolute; inset: -1.5px; border-radius: 50%; background: conic-gradient(var(--acc) 0 68%, transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); }
+.sk.cd svg { opacity: .5; }
+.tag { display: inline-block; padding: 1px 4px; background: var(--w); color: #111; font: 700 7.5px/1.3 var(--f); letter-spacing: .14em; font-style: normal; }
+
+/* ---------- A: Loadout ---------- */
+.agent { display: flex; align-items: center; gap: 10px; padding: 12px 14px 0; }
+.badge { width: 30px; height: 30px; color: var(--acc); flex: none; }
+.who b { display: block; font: 700 15px/1 var(--f); letter-spacing: .08em; }
+.lvl { display: flex; align-items: center; gap: 6px; margin-top: 5px; font: 600 9px/1 var(--f); letter-spacing: .14em; color: var(--g2); }
+.xp { display: block; width: 54px; height: 2px; background: rgba(255, 255, 255, .2); }
+.xp i { display: block; width: 74%; height: 100%; background: var(--acc); }
+.cnt { margin-left: auto; display: flex; gap: 11px; }
+.cnt span { display: flex; align-items: center; gap: 4px; font: 600 11px/1 var(--f); }
+.cnt svg { width: 13px; height: 13px; color: var(--g2); }
+.clock { padding: 14px 14px 0; }
+.clock .t { display: block; font: 300 68px/.9 var(--f); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.clock .d { display: block; margin-top: 7px; font: 600 10px/1 var(--f); letter-spacing: .2em; color: var(--g2); }
+.arow { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 14px 14px 0; font: 600 9px/1 var(--f); letter-spacing: .16em; color: var(--g2); }
+.arow b { font: 600 11px/1 var(--f); color: var(--w); letter-spacing: .04em; }
+.weap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 14px; }
+.weap .wide { grid-column: 1 / -1; height: 52px; }
+.weap .half { height: 42px; }
+.weap .half .gl { --g: 18px; }
+.num { margin-left: auto; text-align: right; }
+.num b { display: block; font: 300 21px/1 var(--f); }
+.num small { display: block; margin-top: 2px; font: 600 7.5px/1 var(--f); letter-spacing: .14em; color: var(--g2); }
+.gear { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 14px; }
+.gear .tile { height: 56px; flex-direction: column; justify-content: center; gap: 6px; padding: 0; }
+.gear .tile span.l { font: 600 8.5px/1 var(--f); letter-spacing: .12em; text-transform: uppercase; color: var(--g2); }
+.skills { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 14px 14px 0; }
+.skill { display: flex; align-items: center; gap: 8px; }
+.skill b { display: block; font: 700 10.5px/1 var(--f); letter-spacing: .1em; }
+.skill small { display: block; margin-top: 3px; font: 600 8.5px/1 var(--f); letter-spacing: .12em; color: var(--g2); }
+
+/* ---------- B: HUD ---------- */
+.wall { inset: 0; background:
+  radial-gradient(ellipse 90% 22% at 50% 57%, rgba(255, 140, 70, .55), transparent 70%),
+  linear-gradient(#0e1824 0%, #1a2a3a 30%, #3e4450 47%, #a8603a 58%, #2a1f1d 64%, #0c0d0f 100%); }
+.wall .city { position: absolute; left: 0; right: 0; bottom: 0; height: 47%; background: #0a0b0d;
+  clip-path: polygon(0 22%, 8% 22%, 8% 12%, 16% 12%, 16% 26%, 26% 26%, 26% 16%, 33% 16%, 33% 24%, 44% 24%, 44% 10%, 47% 10%, 47% 6%, 53% 6%, 53% 10%, 56% 10%, 56% 24%, 66% 24%, 66% 8%, 74% 8%, 74% 20%, 84% 20%, 84% 14%, 92% 14%, 92% 28%, 100% 28%, 100% 100%, 0 100%); }
+.wall .city::after { content: ""; position: absolute; inset: 0; opacity: .28;
+  background-image: radial-gradient(rgba(255, 196, 120, .9) 0 .7px, transparent 1.1px), radial-gradient(rgba(255, 220, 170, .7) 0 .6px, transparent 1px);
+  background-size: 7px 9px, 11px 13px; background-position: 0 0, 3px 5px;
+  -webkit-mask-image: linear-gradient(transparent 8%, #000 25%, rgba(0, 0, 0, .5) 55%, transparent 80%); mask-image: linear-gradient(transparent 8%, #000 25%, rgba(0, 0, 0, .5) 55%, transparent 80%); }
+.wall .dome { position: absolute; left: 50%; bottom: 47%; width: 46px; height: 26px; margin-left: -23px; margin-bottom: -2px; background: #0a0b0d; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+.wall .dome::before { content: ""; position: absolute; left: 50%; top: -15px; width: 4px; height: 16px; margin-left: -2px; background: #0a0b0d; }
+.wall::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(0, 0, 0, .5), transparent 26%, transparent 62%, rgba(0, 0, 0, .6)); }
+.hud { text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
+.trk { position: absolute; left: 16px; top: 40px; width: 190px; }
+.trk-k { display: flex; align-items: center; gap: 7px; font: 700 9.5px/1 var(--f); letter-spacing: .18em; color: var(--acc); }
+.trk-k i { width: 6px; height: 6px; background: var(--acc); }
+.obj { display: flex; gap: 9px; margin-top: 9px; }
+.obj .dia { width: 7px; height: 7px; margin-top: 5px; border: 1.5px solid var(--w); transform: rotate(45deg); flex: none; }
+.obj b { display: block; font: 600 13px/1.2 var(--f); }
+.obj small { display: block; font: 400 10.5px/1.3 var(--f); color: var(--g2); }
+.obj.dim { opacity: .72; }
+.hud-tr { position: absolute; right: 16px; top: 40px; display: flex; align-items: center; gap: 6px; font: 600 9px/1 var(--f); letter-spacing: .16em; color: var(--g2); }
+.hud-tr svg { width: 16px; height: 16px; color: var(--acc); }
+.pop { position: absolute; right: 0; top: 150px; width: 186px; display: flex; gap: 10px; align-items: center; padding: 9px 12px;
+  background: linear-gradient(90deg, rgba(10, 10, 11, .88), rgba(10, 10, 11, .62)); border-left: 3px solid var(--r); text-shadow: none; }
+.pop b { display: block; margin-top: 3px; font: 700 13px/1 var(--f); letter-spacing: .06em; }
+.pop small { display: block; margin-top: 2px; font: 400 10.5px/1.2 var(--f); color: var(--g2); }
+.sub { position: absolute; left: 22px; right: 22px; top: 404px; text-align: center; font: 600 12.5px/1.35 var(--f); text-shadow: 0 1px 3px #000, 0 0 2px #000; }
+.sub b { color: var(--acc); letter-spacing: .12em; margin-right: 5px; }
+.qi { position: absolute; left: 0; right: 0; top: 452px; display: flex; justify-content: center; gap: 6px; }
+.qi .tile { width: 40px; height: 40px; padding: 0; justify-content: center; }
+.qi .gl { --g: 19px; }
+.hud-bl { position: absolute; left: 16px; bottom: 26px; width: 120px; display: grid; gap: 9px; }
+.hud-bl .row { display: flex; gap: 6px; }
+.hud-bl .sk { width: 30px; height: 30px; }
+.hud-bl .arm { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: center; }
+.lv { display: grid; place-items: center; width: 20px; height: 15px; border: 1px solid rgba(255, 255, 255, .55); font: 700 9px/1 var(--f); font-style: normal; }
+.hud-bl .pw-line { font: 600 9px/1 var(--f); letter-spacing: .14em; color: var(--g2); }
+.hud-bl .pw-line b { color: var(--w); font-weight: 600; }
+.hud-br { position: absolute; right: 16px; bottom: 22px; text-align: right; }
+.hud-br .day { font: 600 9.5px/1 var(--f); letter-spacing: .2em; color: var(--g2); }
+.ammo { display: flex; align-items: flex-end; gap: 6px; justify-content: flex-end; }
+.ammo .t { font: 300 46px/.95 var(--f); font-variant-numeric: tabular-nums; }
+.ammo .s { display: grid; text-align: left; padding-bottom: 5px; }
+.ammo .s b { font: 600 15px/1 var(--f); }
+.ammo .s small { margin-top: 3px; font: 600 8.5px/1 var(--f); letter-spacing: .12em; color: var(--g2); }
+.swipe { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font: 600 10px/1 var(--f); color: var(--g3); }
+
+/* ---------- Inventory ---------- */
+.inv-h { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 14px 0; }
+.inv-h h4 { font: 700 21px/1 var(--f); letter-spacing: .08em; }
+.inv-h span { font: 600 10px/1 var(--f); letter-spacing: .14em; color: var(--g2); }
+.cats { display: flex; gap: 14px; padding: 10px 14px 0; font: 600 9.5px/1 var(--f); letter-spacing: .14em; color: rgba(255, 255, 255, .45); }
+.cats span { padding-bottom: 6px; }
+.cats .on { color: var(--w); box-shadow: inset 0 -2px var(--acc); }
+.srch { display: flex; gap: 8px; padding: 10px 14px 0; }
+.srch .box { flex: 1; display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 9px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .14); font: 400 11.5px var(--f); color: var(--g3); }
+.srch .box svg { width: 13px; height: 13px; color: var(--g2); }
+.srch .sort { display: flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid rgba(255, 255, 255, .14); font: 600 9px/1 var(--f); letter-spacing: .12em; color: var(--g2); white-space: nowrap; }
+.srch .sort b { color: var(--w); font-weight: 600; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px 8px; padding: 12px 14px 0; }
+.it { display: grid; gap: 4px; justify-items: center; min-width: 0; }
+.it .tile { width: 100%; height: 50px; justify-content: center; padding: 0; }
+.it .tile .gl { --g: 22px; }
+.it .l { font: 600 8.5px/1 var(--f); letter-spacing: .08em; text-transform: uppercase; color: var(--g2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.it .tag { position: absolute; left: 3px; top: 3px; }
+.it .wk { position: absolute; right: 3px; top: 3px; width: 11px; height: 11px; color: var(--w); opacity: .9; }
+
+/* ---------- Item details ---------- */
+.under { inset: 0; opacity: .22; padding-top: 90px; }
+.itm { position: absolute; left: 12px; right: 12px; top: 42px; box-shadow: 0 20px 40px rgba(0, 0, 0, .6); }
+.itm-h { position: relative; padding: 13px 14px 14px; border-top: 3px solid var(--r);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--r) 48%, #140e0c), color-mix(in srgb, var(--r) 10%, #121314) 75%); }
+.rar { font: 700 9.5px/1 var(--f); letter-spacing: .16em; color: color-mix(in srgb, var(--r) 65%, #fff); }
+.rar span { color: var(--g2); font-weight: 600; }
+.itm-h h4 { margin-top: 6px; font: 700 25px/1 var(--f); letter-spacing: .04em; }
+.big { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.big b { font: 300 30px/.9 var(--f); }
+.big small { font: 600 7.5px/1.35 var(--f); letter-spacing: .14em; color: var(--g2); padding-bottom: 2px; }
+.itm-h .gl { position: absolute; right: 14px; top: 18px; --g: 40px; }
+.itm-b { padding: 10px 14px 12px; background: rgba(15, 16, 18, .95); }
+.lbl { font: 600 8.5px/1 var(--f); letter-spacing: .18em; color: var(--g3); }
+.attr { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 4px 6px; padding: 7px 0 0; }
+.attr i { width: 6px; height: 6px; background: var(--a); transform: rotate(45deg); }
+.attr span { font: 400 11.5px/1.1 var(--f); }
+.attr b { font: 600 11.5px/1.1 var(--f); }
+.attr u { grid-column: 2 / -1; position: relative; height: 2px; background: rgba(255, 255, 255, .12); }
+.attr u::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--wd); background: var(--a); }
+.tal { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.tal b { display: block; margin-top: 5px; font: 700 12px/1.1 var(--f); letter-spacing: .04em; }
+.tal span { display: block; margin-top: 3px; font: 400 11px/1.35 var(--f); color: var(--g2); }
+.acts { background: rgba(9, 9, 10, .95); border-top: 1px solid rgba(255, 255, 255, .08); }
+.act { display: flex; align-items: center; gap: 9px; height: 33px; padding: 0 14px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.act:last-child { border-bottom: 0; }
+.act b { font: 700 11px/1 var(--f); letter-spacing: .12em; }
+.act small { margin-left: auto; font: 400 10.5px/1 var(--f); color: var(--g2); }
+.act.crit b { color: var(--crit); }
+
+/* ---------- Loading ---------- */
+.world.heavy { filter: blur(18px) saturate(1.1) brightness(.8); }
+.ld-top { display: flex; align-items: center; gap: 8px; padding: 18px 22px 0; font: 700 11px/1 var(--f); letter-spacing: .22em; }
+.ld-top svg { width: 18px; height: 18px; color: var(--acc); }
+.ld-main { position: absolute; left: 22px; right: 22px; top: 296px; }
+.ld-main .lbl { color: var(--g2); }
+.ld-main h4 { margin-top: 8px; font: 700 31px/1 var(--f); letter-spacing: .03em; }
+.ld-main i { display: block; width: 40px; height: 2px; margin-top: 14px; background: var(--acc); }
+.ld-main p { margin-top: 10px; font: 400 12.5px/1 var(--f); color: var(--g2); }
+.ld-tip { position: absolute; left: 22px; right: 22px; bottom: 76px; padding-left: 11px; border-left: 2px solid var(--acc); }
+.ld-tip .lbl { color: var(--acc); }
+.ld-tip p { margin-top: 5px; font: 400 12.5px/1.45 var(--f); }
+.ld-spin { position: absolute; right: 22px; bottom: 30px; display: flex; align-items: center; gap: 8px; font: 600 9.5px/1 var(--f); letter-spacing: .18em; color: var(--g2); }
+.ld-spin svg { width: 18px; height: 18px; animation: spin 1.6s linear infinite; }
+
+/* ---------- Settings ---------- */
+.tabs.sm { justify-content: flex-start; gap: 18px; margin-top: 4px; }
+.opts { margin-top: 6px; }
+.opt { display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 14px; border-bottom: 1px solid rgba(255, 255, 255, .07); font: 600 12px/1 var(--f); }
+.opt .val { display: flex; align-items: center; gap: 8px; font: 600 10px/1 var(--f); letter-spacing: .12em; }
+.opt .val i { font-style: normal; color: var(--g3); font-size: 12px; }
+.opt.sel { background: var(--w); color: #111; }
+.opt.sel .val i { color: rgba(0, 0, 0, .5); }
+.desc { position: absolute; left: 14px; right: 14px; bottom: 50px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .14); }
+.desc b { font: 700 11px/1 var(--f); letter-spacing: .14em; }
+.desc p { margin-top: 6px; font: 400 12px/1.45 var(--f); color: var(--g2); }
+
+/* ---------- Intel: the user's dashboard ---------- */
+.wp { inset: 0; background:
+  radial-gradient(circle at 62% 46%, rgba(90, 180, 255, .55), transparent 70px),
+  radial-gradient(circle at 62% 46%, transparent 60px, rgba(2, 10, 24, .45) 170px, rgba(2, 8, 18, .85) 360px),
+  repeating-radial-gradient(circle at 62% 46%, rgba(0, 0, 0, .5) 0 4px, transparent 4px 18px),
+  repeating-conic-gradient(from 2deg at 62% 46%, #1a7fe0 0 3deg, #0a3f82 3deg 7deg, #1060b8 7deg 9deg, #05285a 9deg 13deg); }
+.glass { background: rgba(9, 11, 14, .7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .1); }
+.strip { display: flex; align-items: center; gap: 7px; padding: 8px 12px; font: 600 9px/1 var(--f); letter-spacing: .14em; color: var(--g2); }
+.strip svg { width: 15px; height: 15px; color: var(--acc); }
+.strip b { color: var(--w); font-weight: 700; letter-spacing: .1em; }
+.strip .armor { width: 64px; height: 5px; margin-left: auto; }
+.intel { display: grid; gap: 8px; padding: 0 12px; }
+.calp { display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 9px 10px 8px 12px; }
+.calp .dn { font: 300 58px/.82 var(--f); }
+.calp .dw { margin-top: 10px; font: 700 9.5px/1 var(--f); letter-spacing: .12em; }
+.calp .dm { margin-top: 3px; font: 700 9.5px/1 var(--f); letter-spacing: .12em; color: var(--acc); }
+.mon { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 1px; text-align: center; font: 600 9.5px/15px var(--f); font-variant-numeric: tabular-nums; }
+.mon .h { font: 600 7.5px/13px var(--f); letter-spacing: .08em; color: var(--g3); }
+.mon .we, .mon .past { color: var(--g3); }
+.mon .today { background: var(--acc); color: #111; font-weight: 700; }
+.mon .ev { position: relative; }
+.mon .ev::after { content: ""; position: absolute; left: 50%; bottom: 0; width: 3px; height: 3px; margin-left: -1.5px; background: var(--w); }
+.r2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; height: 164px; }
+.r2 .col { display: grid; grid-template-rows: 1fr 1fr; gap: 8px; }
+.r3 { display: grid; grid-template-columns: 1fr 76px; gap: 8px; height: 96px; }
+.echo { position: relative; overflow: hidden; border: 1px solid rgba(255, 255, 255, .16); background: #15171a; }
+.echo .ph { position: absolute; inset: -12px; filter: blur(6px); }
+.ph.p1 { background: radial-gradient(circle at 35% 42%, #c98a5a 0 16%, transparent 40%), radial-gradient(circle at 68% 58%, #e0b48a 0 14%, transparent 38%), linear-gradient(160deg, #6b4a32, #2b2a33 60%, #1a2030); }
+.ph.p2 { background: radial-gradient(circle at 78% 28%, #f3c07a 0 12%, transparent 40%), radial-gradient(circle at 30% 62%, #8a5a40 0 20%, transparent 45%), linear-gradient(120deg, #3a2a20, #7a5232 55%, #d39a55); }
+.echo.tint .ph { filter: blur(6px) grayscale(1) sepia(1) hue-rotate(-18deg) saturate(3.2) brightness(.85); }
+.ph-l { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; font: 600 8px/1 var(--f); letter-spacing: .16em; color: rgba(255, 255, 255, .8); }
+.ph-l svg { width: 20px; height: 20px; opacity: .85; }
+.echo .meta { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 8px 6px; background: linear-gradient(transparent, rgba(0, 0, 0, .75)); font: 600 8px/1 var(--f); letter-spacing: .12em; color: var(--g2); }
+.wx, .mn { padding: 8px 10px; display: grid; align-content: space-between; }
+.wx-m, .mn-m { display: flex; align-items: center; justify-content: space-between; }
+.wx-t { font: 300 34px/1 var(--f); }
+.wx-m svg { width: 26px; height: 26px; }
+.wx-d, .mn-d { font: 600 10.5px/1.15 var(--f); }
+.wx-s, .mn-s { margin-top: 2px; font: 600 8px/1.2 var(--f); letter-spacing: .1em; color: var(--g2); }
+.moon { position: relative; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 30% 35%, #f1eee8, #c4bfb5 75%); }
+.moon::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 22% 60%, rgba(0, 0, 0, .14) 0 3px, transparent 3.5px), radial-gradient(circle at 38% 28%, rgba(0, 0, 0, .1) 0 2px, transparent 2.5px); }
+.moon::after { content: ""; position: absolute; inset: -1px; border-radius: 50%; background: #1b1e22; transform: translateX(27%); }
+.stash { display: grid; grid-template-rows: 1fr auto; gap: 6px; padding: 8px; }
+.mini { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.mini .bx { display: grid; place-items: center; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .08); }
+.mini .gl { --g: 14px; }
+.stash b { display: block; font: 700 9.5px/1 var(--f); letter-spacing: .14em; }
+.stash small { display: block; margin-top: 3px; font: 600 7.5px/1 var(--f); letter-spacing: .12em; color: var(--g2); }
+.slk { padding: 9px 10px 10px; }
+.slk-h { display: flex; justify-content: space-between; }
+.slk-m { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.slk-m .pres { width: 8px; height: 8px; border-radius: 50%; background: #4fbf72; flex: none; }
+.slk-m b { font: 700 13px/1 var(--f); }
+.slk-m small { font: 400 10.5px/1 var(--f); color: var(--g2); }
+.slk-m .chg { margin-left: auto; font: 600 8.5px/1 var(--f); letter-spacing: .14em; color: var(--g2); }
+.chips { display: flex; gap: 5px; margin-top: 9px; }
+.chips span { padding: 4px 7px; border: 1px solid rgba(255, 255, 255, .2); font: 600 8px/1 var(--f); letter-spacing: .12em; color: var(--g2); }
+.chips span.on { background: var(--w); border-color: var(--w); color: #111; }
+.under-intel { inset: 24px 0 0 0; opacity: .5; }
+.scrim { inset: 0; background: rgba(5, 6, 8, .62); }
+.stp { position: absolute; left: 12px; right: 12px; top: 112px; padding: 14px 12px; background: rgba(12, 13, 15, .93); border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 20px 40px rgba(0, 0, 0, .6); }
+.stp-h { display: flex; justify-content: space-between; align-items: center; }
+.stp-h h4 { font: 700 20px/1 var(--f); letter-spacing: .08em; }
+.stp-h span { display: flex; align-items: center; gap: 6px; font: 600 9px/1 var(--f); letter-spacing: .12em; color: var(--g2); }
+.stp-s { margin-top: 6px; font: 600 8.5px/1 var(--f); letter-spacing: .14em; color: var(--g3); }
+.stp .grid4 { padding: 12px 0 0; }
+.sht { position: absolute; left: 0; right: 0; bottom: 34px; padding-top: 14px; background: rgba(12, 13, 15, .97); border-top: 1px solid rgba(255, 255, 255, .14); }
+.sht .lbl, .sht h4 { padding: 0 14px; }
+.sht h4 { margin: 6px 0 8px; font: 700 20px/1 var(--f); letter-spacing: .06em; }
+.sht .opt.gap { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, .14); }
+.clock .t small { margin-left: 6px; font: 600 15px/1 var(--f); letter-spacing: .12em; color: var(--g2); vertical-align: top; }
+
+.trio { display: grid; grid-template-columns: repeat(3, 300px); justify-content: space-between; gap: 44px 24px; }
+.mods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.mod { background: var(--board-raised); border: 1px solid var(--line); padding: 18px; display: grid; gap: 8px; align-content: start; }
+.mod h3 { font: 700 16px/1.2 var(--f); letter-spacing: .08em; text-transform: uppercase; }
+.mod p { color: var(--g2); font-size: 14px; }
+.mod .need { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--w); font-size: 13.5px; }
+.mod .need::before { content: "Needs"; display: block; margin-bottom: 2px; font: 600 10.5px/1.4 var(--f); letter-spacing: .16em; text-transform: uppercase; color: var(--acc); }
+.mod .echo { height: 74px; }
+@media (max-width: 1099px) { .mods { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1019px) {
+  .trio { grid-template-columns: 1fr; gap: 56px; }
+  .trio .mock { grid-template-columns: 300px minmax(0, 1fr); gap: 28px; }
+  .trio .mock figcaption { max-width: 40ch; padding-top: 10px; }
+}
+@media (max-width: 699px) {
+  .trio .mock { grid-template-columns: 1fr; justify-items: center; }
+  .trio .mock figcaption { max-width: 300px; width: 100%; padding-top: 0; }
+}
+@media (max-width: 560px) { .mods { grid-template-columns: 1fr; } }
+
+/* ---------- system cards ---------- */
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.card { background: var(--board-raised); border: 1px solid var(--line); padding: 22px; display: grid; gap: 16px; align-content: start; }
+.card h3 { font: 700 19px/1.15 var(--f); letter-spacing: .08em; text-transform: uppercase; }
+.card > p { color: var(--g2); font-size: 14.5px; }
+.tiers { display: grid; gap: 9px; }
+.tier { display: grid; grid-template-columns: 38px 92px 1fr; gap: 12px; align-items: center; font-size: 14px; }
+.tier .tile { height: 28px; padding: 0; }
+.tier b { font: 700 12px/1 var(--f); letter-spacing: .1em; text-transform: uppercase; color: color-mix(in srgb, var(--r) 75%, #fff); }
+.tier span { color: var(--g2); }
+.pops { position: relative; display: grid; gap: 14px; padding: 18px 0; background: linear-gradient(#1d252e, #11151a); overflow: hidden; }
+.pops .pop { position: relative; top: auto; right: auto; justify-self: end; }
+.pops .sub { position: relative; top: auto; left: auto; right: auto; padding: 0 16px; }
+.lvup { text-align: center; padding: 6px 0; }
+.lvup .lbl { color: var(--g2); }
+.lvup b { display: block; margin-top: 4px; font: 300 30px/1 var(--f); letter-spacing: .06em; }
+.lvup i { display: block; width: 40px; height: 2px; margin: 8px auto 0; background: var(--acc); }
+.lvup span { display: block; margin-top: 6px; font: 400 12px/1 var(--f); color: var(--g2); }
+.warn { margin: 0 16px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(232, 67, 58, .14); border: 1px solid rgba(232, 67, 58, .5); font: 700 10px/1 var(--f); letter-spacing: .14em; color: var(--crit); }
+.warn .armor i.on { background: var(--crit); }
+.spec { display: grid; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.spec:last-of-type { border-bottom: 0; padding-bottom: 0; }
+.spec .k { font: 600 11px var(--f); letter-spacing: .16em; text-transform: uppercase; color: var(--g3); }
+.spec .s1 { font: 300 56px/1 var(--f); }
+.spec .s2 { font: 700 22px/1.1 var(--f); letter-spacing: .1em; }
+.spec .s3 { font: 400 15px/1.4 var(--f); color: var(--g2); }
+
+@media (max-width: 1099px) { .cards { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .tier { grid-template-columns: 38px 1fr; } .tier span { grid-column: 2; } }
+
+.qs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; counter-reset: q; }
+.qs li { counter-increment: q; display: grid; grid-template-columns: 34px 1fr; gap: 4px 12px; padding: 20px 0; border-top: 1px solid var(--line); }
+.qs li::before { content: counter(q); grid-row: span 3; font: 300 30px/1 var(--f); color: var(--acc); }
+.qs h3 { font: 700 18px/1.25 var(--f); letter-spacing: .03em; }
+.qs p { color: var(--g2); font-size: 15px; max-width: 58ch; }
+.qs .pick { color: var(--w); }
+.qs .pick::before { content: "My pick: "; font-weight: 600; color: var(--acc); }
+@media (max-width: 899px) { .qs { grid-template-columns: 1fr; } }
+
+.foot { margin-top: 64px; padding-top: 22px; border-top: 1px solid var(--line); display: grid; gap: 10px; max-width: 80ch; color: var(--g3); font-size: 14px; }
+.foot b { color: var(--g2); font-weight: 600; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes regen { 50% { background: var(--armor); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="emblem" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4" pathLength="99" stroke-dasharray="30 3" transform="rotate(-75 12 12)"/>
+      <circle cx="12" cy="12" r="3.4" fill="currentColor"/>
+    </symbol>
+    <symbol id="sbi" viewBox="0 0 50 12">
+      <g fill="currentColor"><rect x="0" y="8" width="2" height="3"/><rect x="3" y="6" width="2" height="5"/><rect x="6" y="4" width="2" height="7"/><rect x="9" y="2" width="2" height="9"/></g>
+      <path d="M16 5.2a8 8 0 0 1 11 0M18.2 7.6a5 5 0 0 1 6.6 0M20.4 9.9a1.8 1.8 0 0 1 2.2 0" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <rect x="31" y="2.5" width="15" height="8" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <rect x="32.6" y="4.1" width="8.6" height="4.8" rx=".6" fill="currentColor"/>
+      <rect x="46.6" y="5" width="1.4" height="3" rx=".5" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M6.5 3.5h3l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 5.5a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M4 5h16v11H9.5L4 20z"/><path stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M8 9.5h8M8 12.5h5"/></symbol>
+    <symbol id="i-cam" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7l2-3h4l2 3"/><circle cx="12" cy="13.5" r="3.5"/></g></symbol>
+    <symbol id="i-web" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></g></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></g></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></g></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3.5 6l8.5 7 8.5-7"/></g></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></g></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></g></symbol>
+    <symbol id="i-notes" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></g></symbol>
+    <symbol id="i-photo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 17l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></g></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></g></symbol>
+    <symbol id="i-calc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8.5 7.5h7"/><path stroke-width="2.4" d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/></g></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M3 12h1.5M7 8.5v7M11 5v14M15 8v8M19 10.5v3"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></g></symbol>
+    <symbol id="i-torch" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M7 3h10l-1.5 6h-7z"/><path d="M8.5 9h7v3l-1.5 9h-4l-1.5-9z"/><path d="M12 13v3" stroke-linecap="round"/></g></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/></g></symbol>
+    <symbol id="i-bat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="16" height="10" rx="1.5"/><path d="M21 10.5v3" stroke-linecap="round"/></g><rect x="5" y="9" width="9" height="6" fill="currentColor"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/></g></symbol>
+    <symbol id="i-brief" viewBox="0 0 24 24"><g fill="currentColor"><path d="M9 4h6a1 1 0 0 1 1 1v2h4a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4V5a1 1 0 0 1 1-1zm1 2v1h4V6z"/></g></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M3 10h18M7 14.5h4"/></g></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M21 4L3 11l7 2.5L12.5 21z"/><path d="M10 13.5L21 4"/></g></symbol>
+    <symbol id="i-chat2" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 5h12v8H8l-3 3v-3H3z"/><path d="M15 9h6v8h-2v3l-3-3h-5v-2"/></g></symbol>
+    <symbol id="i-ghost" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M12 3a6 6 0 0 1 6 6v4l2.5 2.5c-1.5.8-3 .8-4 0-1 .8-2.5 1.5-4.5 1.5s-3.5-.7-4.5-1.5c-1 .8-2.5.8-4 0L6 13V9a6 6 0 0 1 6-6z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5z"/></g></symbol>
+    <symbol id="i-watch" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="2.5"/><path d="M9 7l.7-4h4.6L15 7M9 17l.7 4h4.6l.7-4M12 10v2.2l1.4 1"/></g></symbol>
+    <symbol id="i-night" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M14.5 3.5a6 6 0 1 0 6 8.5 5 5 0 0 1-6-8.5z"/><path d="M5.5 21h9a3 3 0 0 0 0-6 4.5 4.5 0 0 0-8.6 1.2A2.4 2.4 0 0 0 5.5 21z" fill="rgba(12,13,15,.9)"/></g></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="intro">
+    <p class="kick">Design review · Round 3</p>
+    <h1><svg aria-hidden="true"><use href="#emblem"/></svg>SHD ISAC <span>Launcher</span></h1>
+    <p class="lede">Your current home screen, rebuilt in the game's menu style: <b>the big date and calendar, moon phase, weather, two photo frames, your app folder and your Slack status</b>, all on your own wallpaper. Below that are the Loadout and HUD pages from round 2, which sit one swipe away.</p>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="Preview options">
+    <div class="tool">
+      <span class="tool-l" id="pwLabel">Battery</span>
+      <div class="seg-ctl" role="group" aria-labelledby="pwLabel">
+        <button type="button" id="pwOk" data-pw="ok" aria-pressed="true">72%</button>
+        <button type="button" id="pwChg" data-pw="chg" aria-pressed="false">Charging</button>
+        <button type="button" id="pwCrit" data-pw="crit" aria-pressed="false">9%</button>
+      </div>
+    </div>
+    <div class="tool">
+      <span class="tool-l" id="icLabel">App icons</span>
+      <div class="seg-ctl" role="group" aria-labelledby="icLabel">
+        <button type="button" id="icW" data-ic="white" aria-pressed="true">White</button>
+        <button type="button" id="icO" data-ic="orig" aria-pressed="false">Original</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= INTEL ================= -->
+  <section class="sec" aria-labelledby="s-intel">
+    <header class="sec-h">
+      <p class="kick">Home screen</p>
+      <h2 id="s-intel">Your dashboard, rebuilt</h2>
+      <p>Same pieces as your setup today, in roughly the same places. The photos are placeholders here. The real frames show your own pictures.</p>
+    </header>
+
+    <div class="trio">
+      <figure class="mock">
+        <div class="phone"><div class="screen" id="intel">
+          <div class="wp"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="intel-body">
+            <nav class="tabs" aria-label="Mockup tabs"><b class="bump">‹</b><span class="on">INTEL</span><span>LOADOUT</span><span>INVENTORY</span><b class="bump">›</b></nav>
+            <div class="strip"><svg aria-hidden="true"><use href="#emblem"/></svg><b>KESTREL</b><span>LEVEL 42</span><div class="armor" data-n="8"></div><b class="pw-val">72%</b></div>
+            <div class="intel">
+              <div class="calp glass">
+                <div><p class="dn">4</p><p class="dw">WEDNESDAY</p><p class="dm">NOVEMBER</p></div>
+                <div class="mon"></div>
+              </div>
+              <div class="r2">
+                <div class="echo"><i class="ph p1"></i><span class="ph-l"><svg><use href="#i-photo"/></svg>YOUR PHOTO</span><span class="meta"><span>FRAME 1</span><span>3 / 48</span></span></div>
+                <div class="col">
+                  <div class="wx glass">
+                    <p class="lbl">CONDITIONS</p>
+                    <div class="wx-m"><span class="wx-t">9°</span><svg aria-hidden="true"><use href="#i-night"/></svg></div>
+                    <div><p class="wx-d">Partly cloudy</p><p class="wx-s">H 12° · L 6° · 5:34 PM</p></div>
+                  </div>
+                  <div class="mn glass">
+                    <p class="lbl">MOON</p>
+                    <div class="mn-m"><div><p class="mn-d">Waning crescent</p><p class="mn-s">27% LIT</p></div><span class="moon" aria-hidden="true"></span></div>
+                    <p class="mn-s">NEW MOON · 9 NOV</p>
+                  </div>
+                </div>
+              </div>
+              <div class="r3">
+                <div class="echo"><i class="ph p2"></i><span class="ph-l"><svg><use href="#i-photo"/></svg>YOUR PHOTO</span><span class="meta"><span>FRAME 2</span><span>17 / 48</span></span></div>
+                <div class="stash glass"><div class="mini" data-mini="whatsapp,signal,gmail,reddit"></div><div><b>STASH</b><small>12 ITEMS</small></div></div>
+              </div>
+              <div class="slk glass">
+                <div class="slk-h"><p class="lbl">WORK STATUS</p><p class="lbl">SLACK</p></div>
+                <div class="slk-m"><i class="pres"></i><div><b>In a meeting</b> <small>until 6:30 pm</small></div><span class="chg">CHANGE ›</span></div>
+                <div class="chips"><span class="on">MEETING</span><span>FOCUS</span><span>LUNCH</span><span>CLEAR</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="prompts"><span><i class="key">●</i>HOLD TO EDIT</span></div>
+        </div></div>
+        <figcaption>
+          <p class="dk">Home</p>
+          <h3>Intel</h3>
+          <p>Your current dashboard as a menu page. It opens when you press Home, with Loadout and Inventory a swipe away.</p>
+          <ul class="notes">
+            <li><span><b>Date and calendar:</b> today is marked in orange, and a dot means there's an event that day.</span></li>
+            <li><span><b>Photo frames</b> cycle through a folder you choose. Tap one to skip ahead.</span></li>
+            <li><span><b>Long-press</b> anywhere to move, add or remove modules.</span></li>
+          </ul>
+        </figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="phone"><div class="screen">
+          <div class="wp"></div><div class="under-intel"></div><div class="scrim"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="stp">
+            <div class="stp-h"><h4>STASH</h4><span><i class="key">●</i>RENAME</span></div>
+            <p class="stp-s">12 ITEMS · MOST USED FIRST</p>
+            <div class="grid4" data-inv="whatsapp:exotic,signal:highend,gmail:highend,reddit:highend,ytmusic:highend,monzo:superior,telegram:superior,revenge:superior,snapchat:specialized,tiktok:specialized,prism:standard,watch:standard"></div>
+          </div>
+          <div class="prompts"><span><i class="key">●</i>OPEN</span><span><i class="key">●</i>HOLD FOR DETAILS</span></div>
+        </div></div>
+        <figcaption>
+          <p class="dk">Tap the folder</p>
+          <h3>Stash</h3>
+          <p>Your app folder opens as an inventory panel, sorted by how often you use each app and colored by rarity. Tap the name to rename it. You can have as many stashes as you like.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="phone"><div class="screen">
+          <div class="wp"></div><div class="under-intel"></div><div class="scrim"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="sht">
+            <p class="lbl">WORK STATUS · SLACK</p>
+            <h4>SET STATUS</h4>
+            <div class="opt"><span>Clear status</span><span class="val">ACTIVE</span></div>
+            <div class="opt sel"><span>In a meeting</span><span class="val">1 HOUR</span></div>
+            <div class="opt"><span>Focus time</span><span class="val">2 HOURS</span></div>
+            <div class="opt"><span>Out for lunch</span><span class="val">30 MIN</span></div>
+            <div class="opt"><span>Commuting</span><span class="val">30 MIN</span></div>
+            <div class="opt"><span>Off for the day</span><span class="val">UNTIL 9 AM</span></div>
+            <div class="opt gap"><span>Clear after</span><span class="val"><i>‹</i>1 HOUR<i>›</i></span></div>
+            <div class="opt"><span>Show me as</span><span class="val"><i>‹</i>ACTIVE<i>›</i></span></div>
+          </div>
+          <div class="prompts"><span><i class="key">●</i>SET STATUS</span><span><i class="key">●</i>BACK</span></div>
+        </div></div>
+        <figcaption>
+          <p class="dk">Tap your status</p>
+          <h3>Work status</h3>
+          <p>Change your Slack status without opening Slack. Each preset clears itself after the time you set, and you can edit the presets to match the statuses you actually use.</p>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= MODULES ================= -->
+  <section class="sec" aria-labelledby="s-mods">
+    <header class="sec-h">
+      <p class="kick">Modules</p>
+      <h2 id="s-mods">What each piece needs</h2>
+      <p>Every module is optional. Android asks once for any permission a module needs, when you first add it.</p>
+    </header>
+    <div class="mods">
+      <div class="mod"><h3>Calendar</h3><p>The big date plus a month view, with today marked and dots on days that have events.</p><p class="need">Calendar access</p></div>
+      <div class="mod"><h3>Moon phase</h3><p>Worked out on the phone from the date, so it works offline. Today it's a waning crescent, about 27% lit.</p><p class="need">Nothing</p></div>
+      <div class="mod"><h3>Weather</h3><p>Temperature, conditions, and today's high and low. It uses Open-Meteo, a free weather service that needs no account.</p><p class="need">Internet, plus your approximate location or a town you set</p></div>
+      <div class="mod"><h3>Photo frames</h3><div class="echo tint"><i class="ph p2"></i><span class="ph-l">ECHO MODE</span></div><p>Full color by default. Echo mode tints them orange, like the game's ECHO recordings.</p><p class="need">Access to the one folder you pick</p></div>
+      <div class="mod"><h3>Work status</h3><p>Shows and changes your Slack status.</p><p class="need">A one-time Slack sign-in. Some workplaces need an admin to approve it. If yours does, your current Status widget can go in a widget slot instead.</p></div>
+      <div class="mod"><h3>Stash</h3><p>App folders. Name them, and long-press to add or remove apps.</p><p class="need">Nothing</p></div>
+      <div class="mod"><h3>Directives</h3><p>Your next alarm and next event, from the HUD. It can also sit on Intel.</p><p class="need">Calendar access, for events</p></div>
+      <div class="mod"><h3>Widget slot</h3><p>Holds any regular Android widget, framed to match the rest of the page.</p><p class="need">Nothing</p></div>
+    </div>
+  </section>
+
+  <!-- ================= HOME ================= -->
+  <section class="sec" aria-labelledby="s-home">
+    <header class="sec-h">
+      <p class="kick">More pages</p>
+      <h2 id="s-home">Loadout and HUD</h2>
+      <p>Loadout is one swipe from Intel and holds your main apps. The HUD is a cleaner home screen you can switch to anytime.</p>
+    </header>
+
+    <div class="dirs">
+      <figure class="mock side">
+        <div class="phone"><div class="screen">
+          <div class="world"><i></i></div><div class="shade"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <nav class="tabs" aria-label="Mockup tabs"><b class="bump">‹</b><span>INTEL</span><span class="on">LOADOUT</span><span>INVENTORY</span><b class="bump">›</b></nav>
+          <div class="agent">
+            <svg class="badge" aria-hidden="true"><use href="#emblem"/></svg>
+            <div class="who"><b>KESTREL</b><span class="lvl">LEVEL 42 <i class="xp"><i></i></i></span></div>
+            <div class="cnt"><span><svg><use href="#i-bat"/></svg><b class="pw-val">72%</b></span><span><svg><use href="#i-box"/></svg>87</span></div>
+          </div>
+          <div class="clock"><span class="t">5:34<small>PM</small></span><span class="d">WEDNESDAY · 4 NOVEMBER</span></div>
+          <div class="arow"><span>ARMOR</span><div class="armor" data-n="10"></div><b class="pw-val">72%</b></div>
+          <div class="sect"><span>WEAPONS</span><i></i><span>3/3</span></div>
+          <div class="weap">
+            <div class="tile wide sel" style="--r:var(--exotic)"><span class="gl" data-i="phone"></span><div class="tx"><b>Phone</b><small>PRIMARY</small></div><div class="num"><b>148</b><small>USES / WK</small></div></div>
+            <div class="tile half" style="--r:var(--exotic)"><span class="gl" data-i="messages"></span><div class="tx"><b>Messages</b><small>SECONDARY</small></div></div>
+            <div class="tile half" style="--r:var(--exotic)"><span class="gl" data-i="camera"></span><div class="tx"><b>Camera</b><small>SIDEARM</small></div></div>
+          </div>
+          <div class="sect"><span>GEAR</span><i></i><span>6/6</span></div>
+          <div class="gear" data-gear="browser:highend,maps:highend,music:highend,mail:superior,gallery:superior,calendar:specialized"></div>
+          <div class="skills">
+            <div class="skill"><span class="sk"><svg><use href="#i-torch"/></svg></span><div><b>FLASHLIGHT</b><small>READY</small></div></div>
+            <div class="skill"><span class="sk cd"><svg><use href="#i-pulse"/></svg></span><div><b>PULSE</b><small>RECHARGING</small></div></div>
+          </div>
+          <div class="prompts"><span><i class="key">↑</i>INVENTORY</span><span><i class="key">●</i>HOLD TO EDIT</span></div>
+        </div></div>
+        <figcaption>
+          <p class="dk">Direction A</p>
+          <h3>Loadout</h3>
+          <p>Your home screen is the character screen. Apps are equipped into weapon and gear slots, and you swipe left or right between tabs.</p>
+          <ul class="notes">
+            <li><span><b>Weapons</b> hold your three main apps. <b>Gear</b> holds six more.</span></li>
+            <li><span><b>Armor</b> is your battery, and it refills segment by segment while charging.</span></li>
+            <li><span><b>Skills</b> are quick actions. Flashlight toggles the torch. Pulse has ISAC read out your status, then recharges.</span></li>
+            <li><span><b>Level</b> counts the days you've used the launcher. The XP bar is how much of today has passed.</span></li>
+          </ul>
+        </figcaption>
+      </figure>
+
+      <figure class="mock side">
+        <div class="phone"><div class="screen hud">
+          <div class="wall"><i class="dome"></i><i class="city"></i></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="trk">
+            <p class="trk-k"><i></i>DIRECTIVES</p>
+            <div class="obj"><i class="dia"></i><div><b>Next alarm 6:30 am</b><small>Thursday · in 12h 56m</small></div></div>
+            <div class="obj dim"><i class="dia"></i><div><b>Dentist</b><small>Tomorrow · 10:00 am</small></div></div>
+          </div>
+          <div class="hud-tr"><svg><use href="#emblem"/></svg>ONLINE</div>
+          <div class="pop" style="--r:var(--standard)"><span class="gl" data-i="weather"></span><div><i class="tag">NEW ITEM</i><b>WEATHER</b><small>Standard · Intel</small></div></div>
+          <p class="sub"><b>ISAC</b><span class="isac-line">Good evening, Agent. Power at 72 percent.</span></p>
+          <div class="qi" data-qi="phone:exotic,messages:exotic,camera:exotic,browser:highend,maps:highend"></div>
+          <div class="hud-bl">
+            <div class="row"><span class="sk"><svg><use href="#i-torch"/></svg></span><span class="sk cd"><svg><use href="#i-pulse"/></svg></span></div>
+            <div class="arm"><i class="lv">42</i><div class="armor" data-n="8"></div></div>
+            <div class="pw-line">ARMOR <b class="pw-val">72%</b></div>
+          </div>
+          <div class="hud-br"><span class="day">WEDNESDAY</span><div class="ammo"><span class="t">5:34</span><span class="s"><b>PM</b><small>4 NOV</small></span></div></div>
+          <div class="swipe">↑</div>
+        </div></div>
+        <figcaption>
+          <p class="dk">Direction B</p>
+          <h3>Field HUD</h3>
+          <p>Your wallpaper is the world, and the launcher sits on top of it like the game's HUD. You only see what you need right now.</p>
+          <ul class="notes">
+            <li><span><b>Directives</b> track what's next: your alarm, plus your next calendar event if you allow it.</span></li>
+            <li><span>The <b>clock</b> sits where the ammo counter would be, with seconds shown like the reserve count.</span></li>
+            <li><span><b>Quick items</b> are five apps. Swipe up for the full inventory.</span></li>
+            <li><span><b>Pop-ups and ISAC subtitles</b> appear when apps are installed or the battery changes.</span></li>
+          </ul>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= SCREENS ================= -->
+  <section class="sec" aria-labelledby="s-flow">
+    <header class="sec-h">
+      <p class="kick">The rest of the app</p>
+      <h2 id="s-flow">Screens</h2>
+      <p>These are the same for either direction.</p>
+    </header>
+
+    <div class="flow">
+      <figure class="mock">
+        <div class="phone"><div class="screen">
+          <div class="world"><i></i></div><div class="shade"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <nav class="tabs" aria-label="Mockup tabs"><b class="bump">‹</b><span>INTEL</span><span>LOADOUT</span><span class="on">INVENTORY</span><b class="bump">›</b></nav>
+          <div class="inv-h"><h4>INVENTORY</h4><span>87 ITEMS</span></div>
+          <div class="cats"><span class="on">ALL</span><span>COMMS</span><span>MEDIA</span><span>TOOLS</span><span>WORK</span></div>
+          <div class="srch"><span class="box"><svg><use href="#i-search"/></svg>Search</span><span class="sort">SORT <b>MOST USED</b></span></div>
+          <div class="grid4" data-inv="messages:exotic,phone:exotic,camera:exotic,browser:highend,maps:highend,music:highend,mail:superior,gallery:superior,calendar:superior,workmail:gearset,workchat:gearset,notes:specialized,clock:specialized,contacts:specialized,files:standard,weather:standard:new,calculator:standard,settings:standard,fitness:worn,recorder:worn"></div>
+          <div class="prompts"><span><i class="key">●</i>OPEN</span><span><i class="key">●</i>HOLD FOR DETAILS</span></div>
+        </div></div>
+        <figcaption>
+          <h3>Inventory</h3>
+          <p>Every app, sorted by how often you use it. The color strip is the app's rarity (see below). New installs get a NEW tag, and work apps carry a briefcase.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="phone"><div class="screen">
+          <div class="world"><i></i></div><div class="shade"></div>
+          <div class="under"><div class="grid4" data-inv="mail:superior,gallery:superior,calendar:superior,workmail:gearset,notes:specialized,clock:specialized,contacts:specialized,files:standard,weather:standard,calculator:standard,settings:standard,fitness:worn"></div></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="itm">
+            <div class="itm-h" style="--r:var(--exotic)">
+              <p class="rar">EXOTIC <span>· COMMUNICATIONS</span></p>
+              <h4>MESSAGES</h4>
+              <div class="big"><b>3h 12m</b><small>SCREEN TIME<br>LAST 7 DAYS</small></div>
+              <span class="gl" data-i="messages"></span>
+            </div>
+            <div class="itm-b">
+              <p class="lbl">ATTRIBUTES</p>
+              <div class="attr" style="--a:var(--red)"><i></i><span>Launches, 7 days</span><b>148</b><u style="--wd:82%"></u></div>
+              <div class="attr" style="--a:var(--blue)"><i></i><span>Storage</span><b>212 MB</b><u style="--wd:34%"></u></div>
+              <div class="attr" style="--a:var(--yellow)"><i></i><span>Installed</span><b>12 Mar 2026</b></div>
+              <div class="tal"><p class="lbl">TALENT</p><b>Top of the Loadout</b><span>Your most-used app this week. It stays Exotic while it's in your top three.</span></div>
+            </div>
+            <div class="acts">
+              <div class="act"><i class="key">+</i><b>EQUIP</b><small>Add to home screen</small></div>
+              <div class="act"><i class="key">−</i><b>MARK AS JUNK</b><small>Hide from inventory</small></div>
+              <div class="act"><i class="key">i</i><b>APP INFO</b><small>Android settings</small></div>
+              <div class="act crit"><i class="key">×</i><b>DISMANTLE</b><small>Uninstall</small></div>
+            </div>
+          </div>
+        </div></div>
+        <figcaption>
+          <h3>Item details</h3>
+          <p>Long-press any app. The card reads like an item tooltip: rarity, a headline number, attribute bars, and a talent. The actions use the game's verbs, with what each one does on the right.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="phone"><div class="screen">
+          <div class="world heavy"><i></i></div><div class="shade"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="ld-top"><svg><use href="#emblem"/></svg>SHD ISAC</div>
+          <div class="ld-main"><p class="lbl">DESTINATION</p><h4>BASE OF<br>OPERATIONS</h4><i></i><p>Agent Kestrel · Level 42</p></div>
+          <div class="ld-tip"><p class="lbl">TIP</p><p>Long-press any item to equip it, mark it as junk, or dismantle it.</p></div>
+          <div class="ld-spin"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="var(--acc)" stroke-width="2.4" pathLength="100" stroke-dasharray="22 11"/></svg>LOADING</div>
+        </div></div>
+        <figcaption>
+          <h3>Loading screen</h3>
+          <p>Shows for about a second when the launcher starts after a restart or update. A new tip each time. You can turn it off.</p>
+        </figcaption>
+      </figure>
+
+      <figure class="mock">
+        <div class="phone"><div class="screen">
+          <div class="world"><i></i></div><div class="shade"></div>
+          <div class="sb"><span>5:34</span><i class="cam"></i><svg><use href="#sbi"/></svg></div>
+          <div class="inv-h"><h4>SETTINGS</h4><span>ISAC 0.1</span></div>
+          <nav class="tabs sm" aria-label="Mockup tabs"><span>AGENT</span><span class="on">DISPLAY</span><span>ISAC</span><span>SYSTEM</span></nav>
+          <div class="opts">
+            <div class="opt"><span>Accent color</span><span class="val"><i>‹</i>SHD ORANGE<i>›</i></span></div>
+            <div class="opt"><span>Background</span><span class="val"><i>‹</i>BLURRED WALLPAPER<i>›</i></span></div>
+            <div class="opt"><span>App icons</span><span class="val"><i>‹</i>WHITE<i>›</i></span></div>
+            <div class="opt sel"><span>Item rarity</span><span class="val"><i>‹</i>BY USAGE<i>›</i></span></div>
+            <div class="opt"><span>Clock</span><span class="val"><i>‹</i>12-HOUR<i>›</i></span></div>
+            <div class="opt"><span>Show seconds</span><span class="val"><i>‹</i>OFF<i>›</i></span></div>
+            <div class="opt"><span>ISAC voice</span><span class="val"><i>‹</i>PULSE ONLY<i>›</i></span></div>
+            <div class="opt"><span>Loading screen</span><span class="val"><i>‹</i>ON<i>›</i></span></div>
+          </div>
+          <div class="desc"><b>ITEM RARITY</b><p>Colors each app by how often you use it. This needs Usage Access, which you turn on once in Android settings.</p></div>
+          <div class="prompts"><span><i class="key">●</i>CHANGE</span><span><i class="key">●</i>SET AS HOME APP</span></div>
+        </div></div>
+        <figcaption>
+          <h3>Settings</h3>
+          <p>Laid out like the game's options menu. The selected row inverts to white, values cycle with the arrows, and the panel at the bottom explains the selected setting.</p>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= SYSTEM ================= -->
+  <section class="sec" aria-labelledby="s-sys">
+    <header class="sec-h">
+      <p class="kick">System</p>
+      <h2 id="s-sys">Rarity, pop-ups, type</h2>
+    </header>
+    <div class="cards">
+      <div class="card">
+        <h3>Rarity means usage</h3>
+        <div class="tiers" data-tiers></div>
+        <p>Rarity updates daily. Apps marked Worn are the ones worth dismantling.</p>
+      </div>
+      <div class="card">
+        <h3>Pop-ups</h3>
+        <div class="pops p-crit-scope">
+          <div class="pop" style="--r:var(--gearset)"><span class="gl" data-i="workchat"></span><div><i class="tag">NEW ITEM</i><b>WORK CHAT</b><small>Gear Set · Work profile</small></div></div>
+          <div class="lvup"><p class="lbl">AGENT</p><b>LEVEL 43</b><i></i><span>Another day in the field.</span></div>
+          <div class="warn p-crit"><span>ARMOR CRITICAL</span><div class="armor" data-n="10" data-fixed="9"></div><span>9%</span></div>
+          <p class="sub"><b>ISAC</b>Warning. Power cell critical. Find a charger.</p>
+        </div>
+        <p>Pop-ups show up for installs, a new level each day, and low battery. ISAC's lines are written for this app. No game dialogue is used.</p>
+      </div>
+      <div class="card">
+        <h3>Type</h3>
+        <div class="spec"><span class="k">Titillium Web Light</span><span class="s1">5:34 PM</span></div>
+        <div class="spec"><span class="k">Titillium Web Bold</span><span class="s2">MARK AS JUNK</span></div>
+        <div class="spec"><span class="k">Titillium Web Regular</span><span class="s3">Long-press any item to equip it.</span></div>
+        <p>A free, open-licensed lookalike of Borda, the typeface the game's UI uses. It ships inside the app.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= QUESTIONS ================= -->
+  <section class="sec" aria-labelledby="s-q">
+    <header class="sec-h">
+      <p class="kick">Your call</p>
+      <h2 id="s-q">Six decisions</h2>
+      <p>Reply with the numbers. For anything you skip, I'll go with my pick.</p>
+    </header>
+    <ol class="qs">
+      <li><h3>Which page opens when you press Home?</h3><p>Intel (your dashboard), Loadout, or the HUD.</p><p class="pick">Intel, with Loadout and Inventory a swipe away.</p></li>
+      <li><h3>Slack: sign in, or keep your current widget?</h3><p>Signing in gives the styled status module. Your existing Status widget can sit in a widget slot instead.</p><p class="pick">Try the sign-in. Fall back to your widget if work blocks it.</p></li>
+      <li><h3>Weather: phone location or a fixed town?</h3><p>Phone location follows you around. A fixed town needs no location permission.</p><p class="pick">Approximate phone location.</p></li>
+      <li><h3>Photos: which folder, and how often?</h3><p>Both frames can share one folder or use one each. They can change every few minutes, every hour, or only when you tap.</p><p class="pick">One folder, a new photo every 30 minutes, full color.</p></li>
+      <li><h3>App icons?</h3><p>White line icons like the game's items, original colors, or your hexagon icon pack. The launcher can read most icon packs.</p><p class="pick">White on Loadout and HUD, with your icon pack as an option.</p></li>
+      <li><h3>Your callsign?</h3><p>"Kestrel" is a placeholder. You can change it in Settings anytime.</p><p class="pick">Tell me yours.</p></li>
+    </ol>
+  </section>
+
+  <footer class="foot">
+    <p><b>Build:</b> Kotlin with Jetpack Compose, Android 8.0 and newer. It installs as a normal app you choose as your home screen, and you can switch back anytime.</p>
+    <p><b>About the look:</b> a fan design inspired by Tom Clancy's The Division 2. All artwork and icons here are original. SHD and ISAC are Ubisoft's names, so this is fine for personal use but would need its own name for a public release.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  const root = document.documentElement;
+  const APPS = {
+    phone: ['Phone', 'i-phone', '#2f9e5c'], messages: ['Messages', 'i-msg', '#2f7de1'],
+    camera: ['Camera', 'i-cam', '#59606a'], browser: ['Browser', 'i-web', '#e0573a'],
+    maps: ['Maps', 'i-map', '#2a9f8c'], music: ['Music', 'i-music', '#d23d73'],
+    mail: ['Mail', 'i-mail', '#3b6fd6'], gallery: ['Gallery', 'i-photo', '#d9932c'],
+    calendar: ['Calendar', 'i-cal', '#4a7be0'], clock: ['Clock', 'i-clock', '#3a4452'],
+    contacts: ['Contacts', 'i-user', '#3e8ed0'], calculator: ['Calculator', 'i-calc', '#4b5563'],
+    files: ['Files', 'i-folder', '#3d7fd9'], fitness: ['Fitness', 'i-fit', '#e0473f'],
+    notes: ['Notes', 'i-notes', '#d6a52f'], recorder: ['Recorder', 'i-wave', '#c2443d'],
+    settings: ['Settings', 'i-gear', '#5b6470'], weather: ['Weather', 'i-sun', '#3a9be0'],
+    workmail: ['Work Mail', 'i-mail', '#1f6fb2', 1], workchat: ['Work Chat', 'i-msg', '#4c5fd6', 1],
+    whatsapp: ['WhatsApp', 'i-msg', '#25a35a'], signal: ['Signal', 'i-chat2', '#3a76f0'],
+    gmail: ['Gmail', 'i-mail', '#d9473b'], monzo: ['Monzo', 'i-card', '#e0574a'],
+    telegram: ['Telegram', 'i-send', '#2a9fd8'], reddit: ['Reddit', 'i-chat2', '#ff5a1f'],
+    revenge: ['Revenge', 'i-chat2', '#5865f2'], snapchat: ['Snapchat', 'i-ghost', '#c9b400'],
+    tiktok: ['TikTok', 'i-music', '#2a2a2e'], ytmusic: ['YT Music', 'i-play', '#e02424'],
+    prism: ['Prism Files', 'i-folder', '#3d7fd9'], watch: ['Andiot Watch', 'i-watch', '#3a3d42']
+  };
+  const gl = k => '<span class="gl" style="--c:' + APPS[k][2] + '"><svg aria-hidden="true"><use href="#' + APPS[k][1] + '"/></svg></span>';
+  const parse = s => s.split(',').map(x => x.split(':'));
+
+  document.querySelectorAll('.gl[data-i]').forEach(el => { el.outerHTML = gl(el.dataset.i); });
+
+  document.querySelectorAll('[data-gear]').forEach(el => {
+    el.innerHTML = parse(el.dataset.gear).map(([k, r]) =>
+      '<div class="tile" style="--r:var(--' + r + ')">' + gl(k) + '<span class="l">' + APPS[k][0] + '</span></div>').join('');
+  });
+  document.querySelectorAll('[data-qi]').forEach(el => {
+    el.innerHTML = parse(el.dataset.qi).map(([k, r], i) =>
+      '<div class="tile' + (i === 0 ? ' sel' : '') + '" style="--r:var(--' + r + ')">' + gl(k) + '</div>').join('');
+  });
+  document.querySelectorAll('[data-inv]').forEach(el => {
+    el.innerHTML = parse(el.dataset.inv).map(([k, r, flag], i) =>
+      '<div class="it"><div class="tile' + (i === 2 && !el.closest('.under') ? ' sel' : '') + '" style="--r:var(--' + r + ')">' + gl(k) +
+      (flag === 'new' ? '<i class="tag">NEW</i>' : '') +
+      (APPS[k][3] ? '<svg class="wk" aria-hidden="true"><use href="#i-brief"/></svg>' : '') +
+      '</div><span class="l">' + APPS[k][0] + '</span></div>').join('');
+  });
+  document.querySelectorAll('[data-mini]').forEach(el => {
+    el.innerHTML = el.dataset.mini.split(',').map(k => '<span class="bx">' + gl(k) + '</span>').join('');
+  });
+
+  // November 2026 starts on a Sunday; today is the 4th
+  document.querySelectorAll('.mon').forEach(mon => {
+    const events = new Set([5, 17, 26]);
+    let h = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => '<span class="h">' + d + '</span>').join('');
+    for (let d = 1; d <= 30; d++) {
+      const dow = (d - 1) % 7, cls = [];
+      if (dow === 0 || dow === 6) cls.push('we');
+      if (d < 4) cls.push('past');
+      if (d === 4) cls.push('today');
+      if (events.has(d)) cls.push('ev');
+      h += '<span class="' + cls.join(' ') + '">' + d + '</span>';
+    }
+    mon.innerHTML = h;
+  });
+
+  // Intel page shown dimmed behind the Stash and Slack overlays
+  const intelBody = document.querySelector('#intel .intel-body');
+  document.querySelectorAll('.under-intel').forEach(u => { u.innerHTML = intelBody.innerHTML; });
+
+  const TIERS = [
+    ['exotic', 'Exotic', 'Your three most-used apps'],
+    ['highend', 'High-End', 'Used most days'],
+    ['superior', 'Superior', 'Used every week'],
+    ['specialized', 'Specialized', 'Used this month'],
+    ['standard', 'Standard', 'Opened in the last 90 days'],
+    ['worn', 'Worn', 'Not opened in 90 days'],
+    ['gearset', 'Gear Set', 'Work profile apps']
+  ];
+  document.querySelector('[data-tiers]').innerHTML = TIERS.map(([v, n, d]) =>
+    '<div class="tier" style="--r:var(--' + v + ')"><div class="tile"></div><b>' + n + '</b><span>' + d + '</span></div>').join('');
+
+  // Battery / armor state
+  const STATES = {
+    ok:   { v: 72, txt: '72%', line: 'Good evening, Agent. Power at 72 percent.' },
+    chg:  { v: 45, txt: '45%', line: 'External power detected. Recharging.' },
+    crit: { v: 9,  txt: '9%',  line: 'Warning. Power cell critical. Find a charger.' }
+  };
+  function drawArmor(state) {
+    const s = STATES[state];
+    document.querySelectorAll('.armor[data-n]').forEach(a => {
+      const n = +a.dataset.n, val = a.dataset.fixed ? +a.dataset.fixed : s.v;
+      const lit = Math.max(1, Math.round(val / 100 * n));
+      let h = '';
+      for (let i = 0; i < n; i++) {
+        const live = !a.dataset.fixed;
+        h += '<i class="' + (i < lit ? 'on' : (live && state === 'chg' && i === lit ? 'next' : '')) + '"></i>';
+      }
+      a.innerHTML = h;
+    });
+    document.querySelectorAll('.screen .pw-val').forEach(el => { el.textContent = s.txt; });
+    document.querySelectorAll('.isac-line').forEach(el => { el.textContent = s.line; });
+    document.querySelectorAll('.trio .screen, .dirs .screen').forEach(el => el.classList.toggle('p-crit', state === 'crit'));
+  }
+  drawArmor('ok');
+
+  function group(ids, attr, fn) {
+    const btns = ids.map(id => document.getElementById(id));
+    btns.forEach(b => b.addEventListener('click', () => {
+      btns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      fn(b.dataset[attr]);
+    }));
+  }
+  group(['pwOk', 'pwChg', 'pwCrit'], 'pw', drawArmor);
+  group(['icW', 'icO'], 'ic', v => root.classList.toggle('icons-original', v === 'orig'));
+})();
+</script>

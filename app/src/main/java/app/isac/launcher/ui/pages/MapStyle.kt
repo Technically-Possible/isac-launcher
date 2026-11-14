@@ -1,0 +1,77 @@
+package app.isac.launcher.ui.pages
+
+/**
+ * Map style in the spirit of the game's city map: dark slate land, black water, grey roads and
+ * building outlines, white uppercase place names, with the fog of war and an orange explored edge on top.
+ * Uses OpenFreeMap's vector tiles (OpenMapTiles schema) and fonts.
+ */
+internal val ISAC_MAP_STYLE = """
+{
+  "version": 8,
+  "name": "ISAC",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "omt": { "type": "vector", "url": "https://tiles.openfreemap.org/planet" },
+    "fog": { "type": "geojson", "data": { "type": "FeatureCollection", "features": [] } },
+    "edges": { "type": "geojson", "data": { "type": "FeatureCollection", "features": [] } },
+    "me": { "type": "geojson", "data": { "type": "FeatureCollection", "features": [] } },
+    "base": { "type": "geojson", "data": { "type": "FeatureCollection", "features": [] } }
+  },
+  "layers": [
+    { "id": "bg", "type": "background", "paint": { "background-color": "#26313D" } },
+    { "id": "landuse", "type": "fill", "source": "omt", "source-layer": "landuse",
+      "filter": ["in", "class", "residential", "suburb", "neighbourhood", "commercial", "industrial"],
+      "paint": { "fill-color": "#2A3541" } },
+    { "id": "landcover", "type": "fill", "source": "omt", "source-layer": "landcover",
+      "filter": ["in", "class", "grass", "wood", "farmland", "scrub"],
+      "paint": { "fill-color": "#28372F", "fill-opacity": 0.8 } },
+    { "id": "park", "type": "fill", "source": "omt", "source-layer": "park", "paint": { "fill-color": "#2A3B32" } },
+    { "id": "water", "type": "fill", "source": "omt", "source-layer": "water", "paint": { "fill-color": "#111C27" } },
+    { "id": "waterway", "type": "line", "source": "omt", "source-layer": "waterway",
+      "paint": { "line-color": "#111C27", "line-width": 1.6 } },
+    { "id": "building", "type": "fill", "source": "omt", "source-layer": "building", "minzoom": 13,
+      "paint": { "fill-color": "#313D4A", "fill-outline-color": "#44525F" } },
+    { "id": "road-minor", "type": "line", "source": "omt", "source-layer": "transportation", "minzoom": 12,
+      "filter": ["in", "class", "minor", "service", "track", "path"],
+      "paint": { "line-color": "#4B5866", "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.5, 17, 4] } },
+    { "id": "road-main", "type": "line", "source": "omt", "source-layer": "transportation",
+      "filter": ["in", "class", "primary", "secondary", "tertiary", "trunk"],
+      "paint": { "line-color": "#6A7887", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 17, 7] } },
+    { "id": "road-motorway", "type": "line", "source": "omt", "source-layer": "transportation",
+      "filter": ["==", "class", "motorway"],
+      "paint": { "line-color": "#8A97A4", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.8, 17, 8] } },
+    { "id": "rail", "type": "line", "source": "omt", "source-layer": "transportation",
+      "filter": ["==", "class", "rail"],
+      "paint": { "line-color": "#55606C", "line-width": 1, "line-dasharray": [3, 3] } },
+    { "id": "boundary", "type": "line", "source": "omt", "source-layer": "boundary",
+      "filter": ["<=", "admin_level", 4],
+      "paint": { "line-color": "#5C4A3D", "line-width": 1, "line-dasharray": [4, 2] } },
+    { "id": "road-label", "type": "symbol", "source": "omt", "source-layer": "transportation_name", "minzoom": 14,
+      "layout": { "symbol-placement": "line", "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"],
+        "text-size": 10, "text-transform": "uppercase", "text-letter-spacing": 0.1 },
+      "paint": { "text-color": "#A9B4BE", "text-halo-color": "#0C1015", "text-halo-width": 1.2 } },
+    { "id": "fog", "type": "fill", "source": "fog", "paint": { "fill-color": "#0A0E13", "fill-opacity": 0.62 } },
+    { "id": "edges", "type": "line", "source": "edges",
+      "paint": { "line-color": "#FF6D10", "line-opacity": 0.85, "line-width": 1.8 } },
+    { "id": "place-label", "type": "symbol", "source": "omt", "source-layer": "place",
+      "filter": ["in", "class", "city", "town", "village", "suburb"],
+      "layout": { "text-field": ["get", "name"], "text-font": ["Noto Sans Bold"],
+        "text-size": ["match", ["get", "class"], "city", 16, "town", 13, 11],
+        "text-transform": "uppercase", "text-letter-spacing": 0.15 },
+      "paint": { "text-color": "#D8DDE2", "text-halo-color": "#0A0D11", "text-halo-width": 1.5 } },
+    { "id": "base", "type": "circle", "source": "base",
+      "paint": { "circle-radius": 7, "circle-color": "#0B0C0D", "circle-stroke-color": "#FF6D10", "circle-stroke-width": 2.5 } },
+    { "id": "base-label", "type": "symbol", "source": "base",
+      "layout": { "text-field": "BASE", "text-font": ["Noto Sans Bold"], "text-size": 11, "text-offset": [0, 1.5],
+        "text-letter-spacing": 0.15, "text-allow-overlap": true },
+      "paint": { "text-color": "#FF6D10", "text-halo-color": "#0A0D11", "text-halo-width": 1.5 } },
+    { "id": "me-halo", "type": "circle", "source": "me",
+      "paint": { "circle-radius": 18, "circle-color": "#FF6D10", "circle-opacity": 0.18 } },
+    { "id": "me", "type": "circle", "source": "me",
+      "paint": { "circle-radius": 6, "circle-color": "#FF6D10", "circle-stroke-color": "#F2F2F0", "circle-stroke-width": 1.5 } }
+  ]
+}
+"""
+
+internal fun pointJson(lat: Double, lon: Double) =
+    """{"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[$lon,$lat]}}"""

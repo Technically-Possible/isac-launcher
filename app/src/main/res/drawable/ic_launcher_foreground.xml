@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original emblem: a three-segment ring (106 degrees each, 14 degree gaps) around a solid core.
+     108dp canvas, art kept inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFF6D10"
+        android:strokeWidth="7"
+        android:pathData="M57.17,28.19 A26,26 0 0,1 77.93,64.16" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFF6D10"
+        android:strokeWidth="7"
+        android:pathData="M74.76,69.65 A26,26 0 0,1 33.24,69.65" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFF6D10"
+        android:strokeWidth="7"
+        android:pathData="M30.07,64.16 A26,26 0 0,1 50.83,28.19" />
+    <path
+        android:fillColor="#FFFF6D10"
+        android:pathData="M44,54 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0 z" />
+</vector>
