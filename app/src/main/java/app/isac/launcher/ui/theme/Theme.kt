@@ -14,7 +14,15 @@ import app.isac.launcher.R
 import app.isac.launcher.data.Rarity
 
 object Ink {
-    val Orange = Color(0xFFFF6D10)
+    private val accent = androidx.compose.runtime.mutableStateOf(Color(0xFFFF6D10))
+
+    /** The accent colour (SHD orange unless another is unlocked and chosen). Reading it tracks changes. */
+    val Orange: Color get() = accent.value
+
+    fun setAccent(argb: Long) {
+        accent.value = Color(argb)
+    }
+
     val OrangeDeep = Color(0xFFC8520A)
     val White = Color(0xFFF2F2F0)
     val G2 = White.copy(alpha = 0.64f)

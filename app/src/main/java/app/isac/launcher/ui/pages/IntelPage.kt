@@ -109,6 +109,65 @@ fun AgentStrip(vm: LauncherViewModel, modifier: Modifier = Modifier) {
     }
 }
 
+/** What's playing, with previous, play/pause and next. Only shows while something is playing or paused. */
+@Composable
+private fun NowPlayingCard(vm: LauncherViewModel) {
+    val np by vm.nowPlaying.collectAsStateWithLifecycle()
+    val n = np ?: return
+    Panel(Modifier.fillMaxWidth().tap({ vm.g.media.open() }), padding = 8.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).background(Color(0xFF15171A)).border(1.dp, Ink.Line), contentAlignment = Alignment.Center) {
+                val art = n.art
+                if (art != null) Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                else Glyph(IsacIcons.Play, 16.dp, Ink.G3)
+            }
+            Gap(10.dp)
+            Column(Modifier.weight(1f)) {
+                Label("NOW PLAYING · ${n.app}", size = 9f)
+                Txt(n.title, Type.body(14.sp, Ink.White, FontWeight.SemiBold), maxLines = 1)
+                if (n.artist.isNotBlank()) Txt(n.artist, Type.body(11.5.sp, Ink.G2), maxLines = 1)
+            }
+            listOf(
+                IsacIcons.Prev to { vm.g.media.previous(); Unit },
+                (if (n.playing) IsacIcons.Pause else IsacIcons.Play) to { vm.g.media.playPause() },
+                IsacIcons.Next to { vm.g.media.next(); Unit },
+            ).forEachIndexed { i, (icon, action) ->
+                Box(
+                    Modifier.padding(start = 6.dp).size(38.dp)
+                        .then(if (i == 1) Modifier.background(Ink.Orange) else Modifier.border(1.dp, Ink.Line))
+                        .tap({ vm.g.haptics.tick(); action() }),
+                    contentAlignment = Alignment.Center,
+                ) { Glyph(icon, 16.dp, if (i == 1) Ink.OnOrange else Ink.White) }
+            }
+        }
+    }
+}
+
+/** Today's three directives as compact progress chips. Tap one to see what it asks for. */
+@Composable
+private fun DailyChips(vm: LauncherViewModel) {
+    val daily by vm.directives.collectAsStateWithLifecycle()
+    if (daily.isEmpty()) return
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        daily.forEach { d ->
+            Column(
+                Modifier.weight(1f).border(1.dp, if (d.done) Ink.Orange else Ink.Line)
+                    .tap({ vm.showToast(if (d.done) "Directive complete: ${d.text}." else "Directive: ${d.text}. Worth 50 XP.") })
+                    .padding(horizontal = 7.dp, vertical = 5.dp),
+            ) {
+                Row {
+                    Label(d.kind.short, Modifier.weight(1f), color = if (d.done) Ink.Orange else Ink.White, size = 8.5f)
+                    Label(if (d.done) "DONE" else "${d.progress}/${d.target}", color = if (d.done) Ink.Orange else Ink.G2, size = 8.5f)
+                }
+                VGap(4.dp)
+                Box(Modifier.fillMaxWidth().height(2.dp).background(Ink.White.copy(alpha = 0.15f))) {
+                    Box(Modifier.fillMaxWidth((d.progress.toFloat() / d.target).coerceIn(0f, 1f)).height(2.dp).background(Ink.Orange))
+                }
+            }
+        }
+    }
+}
+
 /** Compass with the Base of Operations waypoint and its distance. */
 @Composable
 private fun CompassRow(vm: LauncherViewModel) {
@@ -147,6 +206,7 @@ fun IntelPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
         CompassRow(vm)
         CalendarPanel(vm)
         Directives(vm)
+        NowPlayingCard(vm)
         Row(Modifier.fillMaxWidth().weight(1.6f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PhotoFrame(vm, frame = 0, Modifier.weight(1f).fillMaxHeight())
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -246,7 +306,8 @@ private fun Directives(vm: LauncherViewModel) {
     val alarm by vm.nextAlarm.collectAsStateWithLifecycle()
     val event by vm.nextEvent.collectAsStateWithLifecycle()
     val s by vm.settings.collectAsStateWithLifecycle()
-    if (alarm == null && event == null) return
+    val daily by vm.directives.collectAsStateWithLifecycle()
+    if (alarm == null && event == null && daily.isEmpty()) return
     Panel(Modifier.fillMaxWidth(), padding = 10.dp) {
         Label("DIRECTIVES")
         alarm?.let { a ->
@@ -257,6 +318,8 @@ private fun Directives(vm: LauncherViewModel) {
             VGap(6.dp)
             DirectiveLine(e.title, "${dayWord(e.begin)} · ${shortTime(e.begin, s.use24h)}", false)
         }
+        if (alarm != null || event != null) VGap(8.dp) else VGap(6.dp)
+        DailyChips(vm)
     }
 }
 

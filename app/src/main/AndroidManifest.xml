@@ -41,6 +41,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Voice commands can set timers and alarms in the clock app -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Universal search can look up contacts, if the user allows it -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Private space apps appear in Inventory (granted to the default home app) -->
+    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES" />
     <!-- Haptic patterns (Pulse, level-ups, locator pings) -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Swipe down on the header to open notifications -->
@@ -75,6 +79,13 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- Icon packs -->
+        <intent><action android:name="com.novalauncher.THEME" /></intent>
+        <intent><action android:name="org.adw.launcher.THEMES" /></intent>
+        <intent><action android:name="com.gau.go.launcherex.theme" /></intent>
+        <intent><action android:name="com.teslacoilsw.launcher.THEME" /></intent>
+        <intent><action android:name="com.anddoes.launcher.THEME" /></intent>
+        <intent><action android:name="ch.deletescape.lawnchair.ICONPACK" /></intent>
         <intent>
             <action android:name="android.intent.action.SET_TIMER" />
         </intent>
@@ -111,7 +122,25 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- "Add to home screen" from browsers and other apps -->
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT" />
+            </intent-filter>
         </activity>
+
+        <!-- Double-tap to lock and swipe down for notifications. Switched on by the user in Accessibility settings. -->
+        <service
+            android:name=".data.GestureService"
+            android:exported="true"
+            android:label="@string/gesture_service"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/gesture_service" />
+        </service>
 
         <!-- Exploration map: location fixes, restart after reboot, and Expedition mode -->
         <receiver android:name=".data.LocationReceiver" android:exported="false" />

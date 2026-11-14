@@ -29,6 +29,8 @@ data class UsageSnapshot(
     /** The three packages with the most screen time in the last 7 days. */
     val top3: Set<String> = emptySet(),
     val maxLaunches: Int = 1,
+    /** Launches in the last week at around this time of day, for suggestions. */
+    val nearNow: Map<String, Int> = emptyMap(),
     val hasAccess: Boolean = false,
 )
 
@@ -73,11 +75,19 @@ class UsageRepository(private val context: Context) {
         val e = UsageEvents.Event()
         var last: String? = null
         val launches = HashMap<String, Int>()
+        val nearNow = HashMap<String, Int>()
+        val zone = java.time.ZoneId.systemDefault()
+        val hourNow = java.time.Instant.ofEpochMilli(now).atZone(zone).hour
         while (events.hasNextEvent()) {
             events.getNextEvent(e)
             @Suppress("DEPRECATION")
             if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                if (e.packageName != last) launches[e.packageName] = (launches[e.packageName] ?: 0) + 1
+                if (e.packageName != last) {
+                    launches[e.packageName] = (launches[e.packageName] ?: 0) + 1
+                    val h = java.time.Instant.ofEpochMilli(e.timeStamp).atZone(zone).hour
+                    val diff = minOf((h - hourNow + 24) % 24, (hourNow - h + 24) % 24)
+                    if (diff <= 1) nearNow[e.packageName] = (nearNow[e.packageName] ?: 0) + 1
+                }
                 last = e.packageName
             }
         }
@@ -94,6 +104,7 @@ class UsageRepository(private val context: Context) {
             top3 = top3,
             maxLaunches = (result.values.maxOfOrNull { it.launches7d } ?: 1).coerceAtLeast(1),
             hasAccess = true,
+            nearNow = nearNow,
         )
     }
 

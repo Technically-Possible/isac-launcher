@@ -41,6 +41,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.isac.launcher.data.ExpeditionService
 import app.isac.launcher.data.ExplorationTracker
+import app.isac.launcher.data.Place
+import kotlinx.coroutines.launch
 import app.isac.launcher.ui.LauncherViewModel
 import app.isac.launcher.ui.components.Gap
 import app.isac.launcher.ui.components.Glyph
@@ -76,6 +78,10 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
     val expedition by ex.expeditionActive.collectAsStateWithLifecycle()
     val level by vm.level.collectAsStateWithLifecycle()
     var showCities by remember { mutableStateOf(false) }
+    var showAccess by remember { mutableStateOf(false) }
+    var tapped by remember { mutableStateOf<Place?>(null) }
+    val found by ex.caches.collectAsStateWithLifecycle()
+    val places by vm.g.places.places.collectAsStateWithLifecycle()
     var recenter by remember { mutableStateOf(0) }
     val context = LocalContext.current
 
@@ -94,7 +100,7 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
     }
 
     Box(modifier.fillMaxSize()) {
-        if (active) ExplorationMap(vm, recenter, Modifier.fillMaxSize())
+        if (active) ExplorationMap(vm, recenter, showAccess, Modifier.fillMaxSize()) { tapped = it; showCities = false }
         else Box(Modifier.fillMaxSize().background(Color(0xFF1A2129)))
 
         // Stats across the top of the map.
@@ -113,6 +119,7 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
                 Stat("%.1f KM²".format(Locale.UK, ex.areaKm2()), "UNCOVERED")
                 Stat("%.0f KM".format(Locale.UK, km), "TRAVELLED")
                 Stat("${cities.size}", "CITIES")
+                Stat("${found.size}/${places.count { it.landmark }}", "CACHES")
                 Stat("${ex.xp}", "XP")
             }
             val precise = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -163,13 +170,42 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
             }
         }
 
+        // A tapped landmark or accessible place.
+        tapped?.let { p ->
+            Panel(
+                Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = 70.dp).fillMaxWidth().tap({ tapped = null }),
+                padding = 12.dp, fill = Ink.GlassDeep,
+            ) {
+                Label(
+                    when {
+                        p.landmark && p.id in found -> "SHD CACHE · RECOVERED"
+                        p.landmark -> "SHD CACHE · GET WITHIN 60 M TO RECOVER"
+                        p.toilet -> "ACCESSIBLE TOILET"
+                        else -> "ACCESSIBLE PLACE"
+                    },
+                )
+                VGap(4.dp)
+                Txt(p.name.uppercase(), Type.title(18.sp), maxLines = 2)
+                VGap(2.dp)
+                val access = when (p.access) {
+                    "yes", "designated" -> "Wheelchair accessible"
+                    "limited" -> "Partly wheelchair accessible"
+                    else -> null
+                }
+                Txt(listOfNotNull(p.kind.replaceFirstChar(Char::uppercase), access).joinToString(" · "), Type.body(13.sp, Ink.G2))
+                VGap(2.dp)
+                Label("FROM OPENSTREETMAP · CHECK BEFORE YOU RELY ON IT", color = Ink.G3, size = 8.5f)
+            }
+        }
+
         // Bottom controls.
         Row(
             Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             MapButton(if (expedition) "END EXPEDITION" else "START EXPEDITION", expedition, Modifier.weight(1f)) { toggleExpedition() }
-            MapButton("CITIES", showCities) { showCities = !showCities }
+            MapButton("ACCESS", showAccess) { showAccess = !showAccess }
+            MapButton("CITIES", showCities) { showCities = !showCities; tapped = null }
             MapButton("◎", false) { recenter++ }
         }
     }
@@ -198,12 +234,13 @@ private fun MapButton(text: String, on: Boolean, modifier: Modifier = Modifier, 
 
 /** The MapLibre map, kept in step with the screen's lifecycle and redrawn when the fog changes. */
 @Composable
-private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, modifier: Modifier) {
+private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, showAccess: Boolean, modifier: Modifier, onTap: (Place?) -> Unit) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val ex = vm.g.exploration
     val version by ex.version.collectAsStateWithLifecycle()
     val base by vm.base.collectAsStateWithLifecycle()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     val mapView = remember {
@@ -234,7 +271,18 @@ private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, modifier: Modif
             m.uiSettings.isLogoEnabled = false
             m.uiSettings.isCompassEnabled = false
             m.uiSettings.setAttributionMargins(16, 0, 0, 230)
-            m.setStyle(Style.Builder().fromJson(ISAC_MAP_STYLE)) { s -> style = s }
+            m.setStyle(Style.Builder().fromJson(ISAC_MAP_STYLE.replace("#FF6D10", vm.settings.value.accent.hex))) { s -> style = s }
+            m.addOnMapClickListener { point ->
+                val hit = m.queryRenderedFeatures(m.projection.toScreenLocation(point), "caches", "access").firstOrNull()
+                onTap(hit?.getNumberProperty("pid")?.toLong()?.let { vm.g.places.get(it) })
+                hit != null
+            }
+            // Fetch landmarks for wherever the map settles.
+            m.addOnCameraIdleListener {
+                val c = m.cameraPosition
+                val t = c.target
+                if (t != null && c.zoom >= 12.5) scope.launch { vm.g.places.ensureAround(t.latitude, t.longitude) }
+            }
             val fix = vm.g.prefs.lastFix ?: base
             if (fix != null) m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.first, fix.second), 14.0))
         }
@@ -246,6 +294,19 @@ private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, modifier: Modif
         s.getSourceAs<GeoJsonSource>("fog")?.setGeoJson(fog)
         s.getSourceAs<GeoJsonSource>("edges")?.setGeoJson(edges)
         vm.g.prefs.lastFix?.let { (la, lo) -> s.getSourceAs<GeoJsonSource>("me")?.setGeoJson(pointJson(la, lo)) }
+    }
+    val places by vm.g.places.places.collectAsStateWithLifecycle()
+    val found by ex.caches.collectAsStateWithLifecycle()
+    LaunchedEffect(style, places, found) {
+        val s = style ?: return@LaunchedEffect
+        val (caches, access) = withContext(Dispatchers.Default) { vm.g.places.cachesGeoJson(found) to vm.g.places.accessGeoJson() }
+        s.getSourceAs<GeoJsonSource>("caches")?.setGeoJson(caches)
+        s.getSourceAs<GeoJsonSource>("access")?.setGeoJson(access)
+    }
+    LaunchedEffect(style, showAccess) {
+        val s = style ?: return@LaunchedEffect
+        val v = if (showAccess) "visible" else "none"
+        listOf("access", "access-label").forEach { id -> s.getLayer(id)?.setProperties(org.maplibre.android.style.layers.PropertyFactory.visibility(v)) }
     }
     LaunchedEffect(style, base) {
         val s = style ?: return@LaunchedEffect

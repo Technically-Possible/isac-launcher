@@ -46,6 +46,7 @@ fun CityBackdrop(
     phase: SkyPhase = SkyPhase.DUSK,
     weatherCode: Int? = null,
     moon: Moon.Phase? = null,
+    animate: Boolean = true,
 ) {
     if (mode == Backdrop.WALLPAPER) {
         // The system wallpaper shows through the window. Darken it so text stays readable.
@@ -54,11 +55,20 @@ fun CityBackdrop(
     }
     val blurred = mode == Backdrop.CITY_BLURRED
     Box(modifier.fillMaxSize().background(Color(0xFF0C0D0F))) {
-        Box(Modifier.fillMaxSize().then(if (blurred) Modifier.blur(14.dp, BlurredEdgeTreatment.Rectangle) else Modifier)) {
+        if (blurred) {
+            // The blur is expensive, so the blurred scene is drawn once and then only slid around as
+            // a single layer when the phone tilts. Nothing inside it changes from frame to frame.
+            Box(Modifier.fillMaxSize().parallax(tilt, 14.dp)) {
+                Box(Modifier.fillMaxSize().blur(14.dp, BlurredEdgeTreatment.Rectangle)) {
+                    SkyLayer(phase, weatherCode, moon, Modifier.fillMaxSize())
+                    CityLayer(phase, Modifier.fillMaxSize())
+                }
+            }
+        } else {
             SkyLayer(phase, weatherCode, moon, Modifier.fillMaxSize().parallax(tilt, 7.dp))
             CityLayer(phase, Modifier.fillMaxSize().parallax(tilt, 16.dp))
-            if (weatherCode != null) WeatherLayer(weatherCode, Modifier.fillMaxSize().parallax(tilt, 24.dp))
         }
+        if (weatherCode != null && animate) WeatherLayer(weatherCode, Modifier.fillMaxSize())
         val shade = if (blurred) {
             listOf(Color(0x80080909), Color(0xB0080909), Color(0xD0080909))
         } else {

@@ -4,17 +4,23 @@ import android.content.Context
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.json.JSONObject
 
-enum class IconStyle(val label: String) { WHITE("WHITE"), ORANGE("ORANGE"), ORIGINAL("ORIGINAL") }
+enum class IconStyle(val label: String) { WHITE("WHITE"), ORANGE("ACCENT"), ORIGINAL("ORIGINAL"), PACK("ICON PACK") }
 
 enum class Backdrop(val label: String) {
     CITY_BLURRED("CITY · BLURRED"), CITY("CITY"), WALLPAPER("YOUR WALLPAPER")
 }
 
+/** Which page the Home button and a fresh start open on. */
+enum class HomePage(val label: String) { INTEL("INTEL"), HUD("FIELD HUD") }
+
 data class Settings(
     val callsign: String = "AGENT",
     val use24h: Boolean = false,
     val iconStyle: IconStyle = IconStyle.WHITE,
+    /** Package of the chosen icon pack, used when [iconStyle] is PACK. */
+    val iconPack: String = "",
     val backdrop: Backdrop = Backdrop.CITY_BLURRED,
     val rarityByUsage: Boolean = true,
     val isacVoice: Boolean = true,
@@ -34,6 +40,13 @@ data class Settings(
     val haptics: Boolean = true,
     /** When to record places for the exploration map. */
     val tracking: Tracking = Tracking.WHILE_OPEN,
+    val homePage: HomePage = HomePage.INTEL,
+    /** Double-tap to lock, swipe down for notifications, swipe up for search. */
+    val gestures: Boolean = true,
+    val morningBriefing: Boolean = true,
+    /** Unlocked by levelling up. */
+    val accent: Accent = Accent.ORANGE,
+    val sky: Sky = Sky.LIVE,
 )
 
 /** Number of loadout slots: 3 weapons followed by 6 gear. */
@@ -51,6 +64,7 @@ class Prefs(context: Context) {
             putString("callsign", next.callsign)
             putBoolean("use24h", next.use24h)
             putString("iconStyle", next.iconStyle.name)
+            putString("iconPack", next.iconPack)
             putString("backdrop", next.backdrop.name)
             putBoolean("rarityByUsage", next.rarityByUsage)
             putBoolean("isacVoice", next.isacVoice)
@@ -64,6 +78,11 @@ class Prefs(context: Context) {
             putBoolean("shakeToPulse", next.shakeToPulse)
             putBoolean("haptics", next.haptics)
             putString("tracking", next.tracking.name)
+            putString("homePage", next.homePage.name)
+            putBoolean("gestures", next.gestures)
+            putBoolean("morningBriefing", next.morningBriefing)
+            putString("accent", next.accent.name)
+            putString("sky", next.sky.name)
         }
         _settings.value = next
     }
@@ -74,6 +93,7 @@ class Prefs(context: Context) {
             callsign = sp.getString("callsign", d.callsign) ?: d.callsign,
             use24h = sp.getBoolean("use24h", d.use24h),
             iconStyle = enumOr(sp.getString("iconStyle", null), d.iconStyle),
+            iconPack = sp.getString("iconPack", "") ?: "",
             backdrop = enumOr(sp.getString("backdrop", null), d.backdrop),
             rarityByUsage = sp.getBoolean("rarityByUsage", d.rarityByUsage),
             isacVoice = sp.getBoolean("isacVoice", d.isacVoice),
@@ -87,6 +107,11 @@ class Prefs(context: Context) {
             shakeToPulse = sp.getBoolean("shakeToPulse", d.shakeToPulse),
             haptics = sp.getBoolean("haptics", d.haptics),
             tracking = enumOr(sp.getString("tracking", null), d.tracking),
+            homePage = enumOr(sp.getString("homePage", null), d.homePage),
+            gestures = sp.getBoolean("gestures", d.gestures),
+            morningBriefing = sp.getBoolean("morningBriefing", d.morningBriefing),
+            accent = enumOr(sp.getString("accent", null), d.accent),
+            sky = enumOr(sp.getString("sky", null), d.sky),
         )
     }
 
@@ -143,7 +168,7 @@ class Prefs(context: Context) {
         (sp.getString(name, "") ?: "").split('\n').filter { it.isNotBlank() }
 
     // ---- misc ----
-    /** First day the launcher ran. Agent level counts days from here. */
+    /** First day the launcher ran. */
     val firstRun: Long = sp.getLong("firstRun", 0L).takeIf { it > 0 }
         ?: System.currentTimeMillis().also { now -> sp.edit { putLong("firstRun", now) } }
 
@@ -217,9 +242,59 @@ class Prefs(context: Context) {
         get() = sp.getLong("lastStormWarning", 0L)
         set(v) = sp.edit { putLong("lastStormWarning", v) }
 
+    var lastBriefingDay: Long
+        get() = sp.getLong("lastBriefingDay", 0L)
+        set(v) = sp.edit { putLong("lastBriefingDay", v) }
+
     var weatherCache: String?
         get() = sp.getString("weatherCache", null)
         set(v) = sp.edit { putString("weatherCache", v) }
+
+    /** Raw access for the daily directives, which keep a handful of counters. */
+    fun getLong(key: String, def: Long = 0L) = sp.getLong(key, def)
+    fun putLong(key: String, v: Long) = sp.edit { putLong(key, v) }
+    fun getString(key: String): String? = sp.getString(key, null)
+    fun putString(key: String, v: String) = sp.edit { putString(key, v) }
+
+    // ---- backup ----
+
+    /** Keys that only make sense on this phone, so they're left out of backups. */
+    private fun portable(key: String) = !key.startsWith("widget") && key != "photoTree" && key != "weatherCache"
+
+    fun exportJson(): JSONObject {
+        val o = JSONObject()
+        sp.all.forEach { (k, v) ->
+            if (!portable(k) || v == null) return@forEach
+            val (t, value) = when (v) {
+                is Boolean -> "b" to v
+                is Int -> "i" to v
+                is Long -> "l" to v
+                is Float -> "f" to v.toDouble()
+                is String -> "s" to v
+                else -> return@forEach
+            }
+            o.put(k, JSONObject().put("t", t).put("v", value))
+        }
+        return o
+    }
+
+    /** Replaces the saved settings with a backup. ISAC restarts afterwards to load them. */
+    fun importJson(o: JSONObject) {
+        sp.edit(commit = true) {
+            sp.all.keys.filter(::portable).forEach { remove(it) }
+            o.keys().forEach { k ->
+                if (!portable(k)) return@forEach
+                val e = o.optJSONObject(k) ?: return@forEach
+                when (e.optString("t")) {
+                    "b" -> putBoolean(k, e.optBoolean("v"))
+                    "i" -> putInt(k, e.optInt("v"))
+                    "l" -> putLong(k, e.optLong("v"))
+                    "f" -> putFloat(k, e.optDouble("v").toFloat())
+                    "s" -> putString(k, e.optString("v"))
+                }
+            }
+        }
+    }
 
     private inline fun <reified T : Enum<T>> enumOr(name: String?, fallback: T): T =
         runCatching { enumValueOf<T>(name ?: "") }.getOrDefault(fallback)

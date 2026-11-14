@@ -12,6 +12,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.isac.launcher.data.AppEntry
 import app.isac.launcher.data.Badges
+import app.isac.launcher.data.Directives
+import app.isac.launcher.data.IconSource
+import app.isac.launcher.data.Rewards
+import app.isac.launcher.data.powerSaveFlow
+import app.isac.launcher.ui.theme.Ink
 import app.isac.launcher.data.City
 import app.isac.launcher.data.ExploreEvent
 import app.isac.launcher.data.Tracking
@@ -53,6 +58,7 @@ sealed interface Overlay {
     data class TextInput(val kind: InputKind) : Overlay
     data object Pulse : Overlay
     data object Voice : Overlay
+    data class Shortcut(val info: android.content.pm.ShortcutInfo) : Overlay
 }
 
 enum class InputKind(val title: String, val hint: String) {
@@ -99,6 +105,25 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         .map<Float, Float?> { it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val stealth: StateFlow<Boolean> = Sensors.stealth(app).stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /** Battery saver: animations and tilt effects pause while it's on. */
+    val powerSave: StateFlow<Boolean> = powerSaveFlow(app).stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val nowPlaying = g.media.now
+    val directives = g.directives.today
+    val privateSpace = g.apps.privateSpace
+    val privateApps = g.apps.privateApps
+    val pinned = g.apps.pinned
+
+    /** Apps you tend to open around this time of day, leaving out what's already in the loadout. */
+    val suggestions: StateFlow<List<AppEntry>> = combine(g.apps.apps, g.usage.snapshot, g.prefs.loadout) { list, snap, slots ->
+        if (!snap.hasAccess) emptyList() else list
+            .filter { it.key !in slots && !it.isWork }
+            .sortedWith(compareByDescending<AppEntry> { snap.nearNow[it.pkg] ?: 0 }.thenByDescending { snap.byPackage[it.pkg]?.foreground7d ?: 0L })
+            .filter { (snap.nearNow[it.pkg] ?: 0) > 0 || (snap.byPackage[it.pkg]?.foreground7d ?: 0L) > 0 }
+            .take(4)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Asks the Inventory page to put the cursor in its search box. */
+    val searchFocus = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val base = g.prefs.base
 
     /** Pressure change over the last three hours in hPa, or null until there's enough history. */
@@ -197,7 +222,45 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                     is ExploreEvent.CityUnlocked -> announceCity(e.city)
                     is ExploreEvent.LevelUp -> if (e.level > g.prefs.announcedLevel) announceLevel(e.level)
                     ExploreEvent.ArrivedHome -> announceArrival()
+                    is ExploreEvent.CacheRecovered -> {
+                        g.haptics.reward()
+                        showToast("Cache recovered: ${e.place.name}.",
+                            banner = Banner("SHD CACHE RECOVERED", e.place.name.uppercase(), "+60 XP · ${e.place.kind.replaceFirstChar(Char::uppercase)}"))
+                        g.directives.refresh()
+                    }
                 }
+            }
+        }
+        viewModelScope.launch {
+            g.directives.completed.collect { d ->
+                g.haptics.confirm()
+                showToast("Directive complete: ${d.text}. +${Directives.XP} XP.")
+            }
+        }
+        // The chosen accent colour applies everywhere at once.
+        viewModelScope.launch { settings.collect { Ink.setAccent(it.accent.argb) } }
+        // Load every icon in the background so lists don't fill in while scrolling.
+        viewModelScope.launch {
+            combine(apps, settings) { list, s -> list to IconSource.of(s.iconStyle, s.iconPack) }.collect { (list, src) -> g.icons.prewarm(list, src) }
+        }
+        var lastBadgeTotal = 0
+        viewModelScope.launch {
+            badges.collect { m ->
+                val total = m.values.sum()
+                g.directives.noteBadges(total, lastBadgeTotal)
+                lastBadgeTotal = total
+            }
+        }
+        viewModelScope.launch {
+            combine(g.exploration.cellCount, g.exploration.distanceKm) { _, _ -> }.collect {
+                val b = base.value
+                val f = g.prefs.lastFix
+                if (b != null && f != null) {
+                    val out = FloatArray(1)
+                    android.location.Location.distanceBetween(f.first, f.second, b.first, b.second, out)
+                    g.directives.noteDistanceFromBase(out[0])
+                }
+                g.directives.refresh(Badges.hasAccess(getApplication()))
             }
         }
     }
@@ -211,8 +274,73 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { g.weather.refresh() }
         viewModelScope.launch { g.photos.refresh() }
         viewModelScope.launch { refreshCalendar() }
+        g.media.start()
+        g.directives.refresh(Badges.hasAccess(getApplication()))
         catchUpExploration()
         revealHere()
+        viewModelScope.launch { delay(2_500); morningBriefing() }
+    }
+
+    /** The first time ISAC is opened each morning: weather, first event and power, read out once. */
+    private fun morningBriefing() {
+        val s = settings.value
+        if (!s.morningBriefing) return
+        val now = java.time.ZonedDateTime.now()
+        if (now.hour !in 5..11) return
+        val day = now.toLocalDate().toEpochDay()
+        if (g.prefs.lastBriefingDay == day) return
+        g.prefs.lastBriefingDay = day
+        val parts = ArrayList<String>()
+        parts += "Good morning, Agent."
+        weather.value?.let { parts += "It's ${it.tempC} degrees and ${it.description.lowercase()}, with a high of ${it.highC}." }
+        nextEvent.value?.takeIf { java.time.Instant.ofEpochMilli(it.begin).atZone(now.zone).toLocalDate() == now.toLocalDate() }?.let {
+            val t = java.time.Instant.ofEpochMilli(it.begin).atZone(now.zone)
+                .format(java.time.format.DateTimeFormatter.ofPattern(if (s.use24h) "HH:mm" else "h:mm a", java.util.Locale.UK))
+            parts += "First up: ${it.title} at $t."
+        }
+        val b = battery.value
+        parts += "Power cell at ${b.percent} percent."
+        val line = parts.joinToString(" ")
+        showToast(line)
+        if (s.isacVoice) g.isac.speak(line)
+    }
+
+    // ---- backup ----
+
+    fun exportBackup(uri: Uri) {
+        val ctx = getApplication<Application>()
+        viewModelScope.launch {
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val json = org.json.JSONObject().put("app", "isac-launcher").put("version", 1)
+                        .put("prefs", g.prefs.exportJson()).put("exploration", g.exploration.exportJson())
+                    ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toString().toByteArray()) } != null
+                }.getOrDefault(false)
+            }
+            showToast(if (ok) "Backup saved." else "The backup couldn't be saved.")
+        }
+    }
+
+    /** Restores a backup, then restarts ISAC so everything loads fresh. */
+    fun importBackup(uri: Uri) {
+        val ctx = getApplication<Application>()
+        viewModelScope.launch {
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: return@runCatching false
+                    val json = org.json.JSONObject(text)
+                    if (json.optString("app") != "isac-launcher") return@runCatching false
+                    g.prefs.importJson(json.getJSONObject("prefs"))
+                    json.optJSONObject("exploration")?.let { g.exploration.importJson(it) }
+                    true
+                }.getOrDefault(false)
+            }
+            if (!ok) { showToast("That file isn't an ISAC backup."); return@launch }
+            ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)?.let {
+                ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            }
+            Runtime.getRuntime().exit(0)
+        }
     }
 
     fun refreshCalendar() {
@@ -241,6 +369,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         if (!g.scanner.hasPermission()) return
         pulseCooldownUntil = System.currentTimeMillis() + 6_000
         g.haptics.pulse()
+        g.directives.notePulse()
         g.scanner.pulse { n ->
             val line = "Pulse complete. $n signal${if (n == 1) "" else "s"} in range."
             showToast(line)
@@ -303,6 +432,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             is Command.Unknown -> "Command not recognised."
         }
         if (settings.value.isacVoice) g.isac.speak(reply)
+        g.directives.noteVoice()
         return reply
     }
 
@@ -318,7 +448,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- exploration ----
 
-    val level: StateFlow<Int> = combine(g.exploration.cellCount, g.exploration.cities, g.exploration.distanceKm) { _, _, _ ->
+    val level: StateFlow<Int> = combine(g.exploration.cellCount, g.exploration.cities, g.exploration.distanceKm, g.exploration.bonus) { _, _, _, _ ->
         g.exploration.level
     }.stateIn(viewModelScope, SharingStarted.Eagerly, g.exploration.level)
 
@@ -342,7 +472,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private fun announceLevel(level: Int) {
         g.prefs.announcedLevel = level
         g.haptics.reward()
-        showToast("Level up. You are now level $level.", banner = Banner("LEVEL UP", "LEVEL $level", "Exploration rank increased"))
+        val unlocks = Rewards.unlockedAt(level)
+        showToast("Level up. You are now level $level.",
+            banner = Banner("LEVEL UP", "LEVEL $level", if (unlocks.isEmpty()) "Exploration rank increased" else "Unlocked: ${unlocks.joinToString(", ")}"))
         if (settings.value.isacVoice) g.isac.speak("Level up. You are now level $level.")
     }
 

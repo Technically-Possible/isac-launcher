@@ -11,6 +11,9 @@ import app.isac.launcher.data.UsageRepository
 import app.isac.launcher.data.WeatherRepository
 import app.isac.launcher.data.WidgetHostManager
 import app.isac.launcher.data.Exploration
+import app.isac.launcher.data.PlacesRepository
+import app.isac.launcher.data.Directives
+import app.isac.launcher.data.MediaRepository
 import app.isac.launcher.data.PulseScanner
 import app.isac.launcher.isac.Haptics
 import app.isac.launcher.isac.VoiceInput
@@ -45,6 +48,9 @@ class Graph(val app: Application) {
     val isac = Isac(app)
     val torch = Torch(app)
     val exploration = Exploration(app, prefs, scope)
+    val places = PlacesRepository(app, exploration, scope).also { exploration.places = it }
+    val directives = Directives(prefs, exploration)
+    val media = MediaRepository(app)
     val scanner = app.let { PulseScanner(it) }
     val voice = app.let { VoiceInput(it) }
     val offlineVoice = OfflineVoice(app)

@@ -14,15 +14,19 @@ android {
         applicationId = "app.isac.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
         // The map library ships native code; keep only the phone (arm64) and emulator (x86_64) builds.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Optimised and shrunk. Signed with the same key as debug builds so it installs over them
+            // and keeps all data. A store release would need its own key.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -53,6 +57,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
     implementation("androidx.core:core-ktx:1.16.0")
+    // Installs the libraries' startup profiles so first launches are pre-compiled.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     // Exploration map. Tiles from OpenFreeMap (OpenStreetMap data), no account or key needed.
     implementation("org.maplibre.gl:android-sdk:12.3.1")
     // Offline voice commands (Vosk). The phone has no speech recogniser, so ISAC brings its own.

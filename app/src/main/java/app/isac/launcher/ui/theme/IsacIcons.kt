@@ -36,6 +36,10 @@ object IsacIcons {
     val Photo = line("photo", "M4.5 4h15A1.5 1.5 0 0 1 21 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5v-13A1.5 1.5 0 0 1 4.5 4z", "M3 17l5-5 4 4 3-3 6 6", c(15.5f, 8.5f, 1.5f))
     val Gear = line("gear", c(12f, 12f, 3f), c(12f, 12f, 6.5f), "M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1")
     val Grid = line("grid", "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z")
+    val Play = line("play", "M8 5l11 7-11 7z", filled = setOf(0))
+    val Pause = line("pause", "M8 5v14M16 5v14", width = 3f)
+    val Next = line("next", "M5 5l10 7-10 7z", "M18 5v14", filled = setOf(0), width = 2.4f)
+    val Prev = line("prev", "M19 5l-10 7 10 7z", "M6 5v14", filled = setOf(0), width = 2.4f)
     val Plus = line("plus", "M12 5v14M5 12h14", width = 2f)
 
     // weather

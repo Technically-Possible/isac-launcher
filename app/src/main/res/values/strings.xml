@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SHD ISAC</string>
+    <string name="gesture_service">SHD ISAC gestures</string>
+    <string name="gesture_service_desc">Lets SHD ISAC lock the screen when you double-tap, and open notifications when you swipe down. It does not read or watch anything on your screen.</string>
     <string name="badge_listener">SHD ISAC notification counters</string>
 </resources>

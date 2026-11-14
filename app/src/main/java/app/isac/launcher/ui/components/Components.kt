@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.isac.launcher.data.AppEntry
 import app.isac.launcher.data.AppIcon
+import app.isac.launcher.data.IconSource
+import androidx.compose.runtime.collectAsState
 import app.isac.launcher.data.IconStyle
 import app.isac.launcher.data.Rarity
 import app.isac.launcher.graph
@@ -388,10 +390,13 @@ private fun tintMatrix(c: Color): ColorMatrix {
 /** An app's icon in the chosen style: white or orange line art from the themed-icon layer, or the original. */
 @Composable
 fun AppGlyph(entry: AppEntry, size: Dp, style: IconStyle, modifier: Modifier = Modifier) {
-    val icons = LocalContext.current.graph.icons
-    val full = style == IconStyle.ORIGINAL
-    var icon by remember(entry.key, full) { mutableStateOf<AppIcon?>(icons.peek(entry, full)) }
-    LaunchedEffect(entry.key, full) { if (icon == null) icon = icons.load(entry, full) }
+    val graph = LocalContext.current.graph
+    val icons = graph.icons
+    val pack = graph.prefs.settings.collectAsState().value.iconPack
+    val source = IconSource.of(style, pack)
+    val full = source != IconSource.Mono
+    var icon by remember(entry.key, source) { mutableStateOf<AppIcon?>(icons.peek(entry, source)) }
+    LaunchedEffect(entry.key, source) { if (icon == null) icon = icons.load(entry, source) }
     val i = icon
     if (i == null) {
         Spacer(modifier.size(size))

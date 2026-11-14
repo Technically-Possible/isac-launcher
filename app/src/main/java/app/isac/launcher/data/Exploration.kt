@@ -73,6 +73,7 @@ sealed interface ExploreEvent {
     data class CityUnlocked(val city: City) : ExploreEvent
     data class LevelUp(val level: Int) : ExploreEvent
     data object ArrivedHome : ExploreEvent
+    data class CacheRecovered(val place: Place) : ExploreEvent
 }
 
 enum class Tracking(val label: String) { ALWAYS("ALWAYS"), WHILE_OPEN("WHILE OPEN"), OFF("OFF") }
@@ -109,7 +110,34 @@ class Exploration(private val context: Context, private val prefs: Prefs, privat
     private var lastGeocode: Location? = null
     private var lastGeocodeTime = 0L
 
-    val xp: Int get() = _cellCount.value + _cities.value.size * 150 + (_distanceKm.value * 2).toInt()
+    /** XP from directives and recovered landmark caches. */
+    private val _bonus = MutableStateFlow(0)
+    val bonus: StateFlow<Int> = _bonus
+
+    /** IDs of landmark caches recovered so far. */
+    private val _caches = MutableStateFlow<Set<Long>>(emptySet())
+    val caches: StateFlow<Set<Long>> = _caches
+
+    /** Landmark data, wired up by the app once both exist. */
+    var places: PlacesRepository? = null
+
+    val xp: Int get() = _cellCount.value + _cities.value.size * 150 + (_distanceKm.value * 2).toInt() + _bonus.value
+
+    /** Adds bonus XP and announces a level-up if it crosses one. */
+    fun reward(amount: Int) {
+        val before = level
+        _bonus.value += amount
+        save()
+        if (level > before) _events.tryEmit(ExploreEvent.LevelUp(level))
+    }
+
+    /** Marks a landmark cache as recovered. Worth 60 XP. */
+    fun recoverCache(place: Place) {
+        if (place.id in _caches.value) return
+        _caches.value = _caches.value + place.id
+        _events.tryEmit(ExploreEvent.CacheRecovered(place))
+        reward(60)
+    }
 
     init { load() }
 
@@ -161,6 +189,7 @@ class Exploration(private val context: Context, private val prefs: Prefs, privat
         checkArrival(prev, loc)
         lastFix = loc
         prefs.lastFix = loc.latitude to loc.longitude
+        places?.onFix(loc)
         if (added > 0) {
             _cellCount.value = cells.size
             _version.value++
@@ -337,6 +366,9 @@ class Exploration(private val context: Context, private val prefs: Prefs, privat
             if (!stateFile.exists()) return@runCatching
             val o = JSONObject(stateFile.readText())
             _distanceKm.value = o.optDouble("km", 0.0)
+            _bonus.value = o.optInt("bonus", 0)
+            val found = o.optJSONArray("caches") ?: JSONArray()
+            _caches.value = (0 until found.length()).map { found.getLong(it) }.toSet()
             val arr = o.optJSONArray("cities") ?: JSONArray()
             _cities.value = (0 until arr.length()).map {
                 val c = arr.getJSONObject(it)
@@ -364,6 +396,8 @@ class Exploration(private val context: Context, private val prefs: Prefs, privat
                         put(JSONObject().put("n", c.name).put("c", c.country).put("t", c.firstVisit).put("la", c.lat).put("lo", c.lon))
                     }
                 })
+            o.put("bonus", _bonus.value)
+            o.put("caches", JSONArray().apply { _caches.value.forEach { put(it) } })
             lastFix?.let { o.put("fix", JSONObject().put("la", it.latitude).put("lo", it.longitude).put("t", it.time)) }
             stateFile.writeText(o.toString())
         }
@@ -375,12 +409,33 @@ class Exploration(private val context: Context, private val prefs: Prefs, privat
         stateFile.delete()
         _cities.value = emptyList()
         _distanceKm.value = 0.0
+        _bonus.value = 0
+        _caches.value = emptySet()
         _cellCount.value = 0
         lastFix = null
         _version.value++
     }
 
     internal fun setExpedition(on: Boolean) { _expedition.value = on }
+
+    // ---------------------------------------------------------------- backup
+
+    /** The whole record as JSON, for backups: cells (base64) plus distance, cities, bonus and caches. */
+    fun exportJson(): JSONObject {
+        save()
+        val bytes = java.io.ByteArrayOutputStream()
+        DataOutputStream(bytes).use { s -> synchronized(cells) { cells.forEach { s.writeLong(it) } } }
+        return JSONObject()
+            .put("cells", android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP))
+            .put("state", if (stateFile.exists()) JSONObject(stateFile.readText()) else JSONObject())
+    }
+
+    /** Replaces the record with a backup. ISAC restarts afterwards to load it. */
+    fun importJson(o: JSONObject) {
+        val raw = android.util.Base64.decode(o.optString("cells"), android.util.Base64.NO_WRAP)
+        cellsFile.writeBytes(raw)
+        stateFile.writeText((o.optJSONObject("state") ?: JSONObject()).toString())
+    }
 
     // ---------------------------------------------------------------- notifications
 

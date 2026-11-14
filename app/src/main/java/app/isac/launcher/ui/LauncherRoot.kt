@@ -31,6 +31,13 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.isac.launcher.data.WidgetSlot
+import app.isac.launcher.data.Backdrop
+import app.isac.launcher.data.GestureService
+import app.isac.launcher.data.HomePage
+import app.isac.launcher.data.Sky
+import app.isac.launcher.ui.overlays.ShortcutPanel
+import app.isac.launcher.ui.pages.HudPage
+import androidx.compose.foundation.gestures.detectTapGestures
 import app.isac.launcher.data.Moon
 import app.isac.launcher.data.Sensors
 import app.isac.launcher.data.SkyPhase
@@ -64,12 +71,24 @@ import app.isac.launcher.ui.pages.MapPage
 import app.isac.launcher.ui.theme.IsacIcons
 import kotlinx.coroutines.launch
 
-private val TABS = listOf("INTEL", "LOADOUT", "INVENTORY", "MAP")
+private val BASE_TABS = listOf("INTEL", "LOADOUT", "INVENTORY", "MAP")
+
+/** The sky and weather to draw for the chosen (and unlocked) sky. */
+private fun skyFor(sky: Sky, living: Boolean, live: SkyPhase, liveWeather: Int?): Pair<SkyPhase, Int?> = when (sky) {
+    Sky.LIVE -> if (living) live to liveWeather else SkyPhase.DUSK to null
+    Sky.DUSK -> SkyPhase.DUSK to null
+    Sky.NIGHT -> SkyPhase.NIGHT to null
+    Sky.WINTER -> SkyPhase.DAY to 73
+    Sky.DARK_ZONE -> SkyPhase.NIGHT to 95
+}
 
 @Composable
 fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProviderInfo) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val toast by vm.toast.collectAsStateWithLifecycle()
+    val hudHome = settings.homePage == HomePage.HUD
+    val TABS = if (hudHome) listOf("HUD") + BASE_TABS.drop(1) else BASE_TABS
+    val powerSave by vm.powerSave.collectAsStateWithLifecycle()
     val pager = rememberPagerState { TABS.size }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -111,17 +130,22 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
     }
 
     Box(Modifier.fillMaxSize()) {
-        val tilt = if (settings.parallax) vm.tilt.collectAsStateWithLifecycle() else null
+        // Battery saver pauses the tilt effect and weather animation.
+        val tilt = if (settings.parallax && !powerSave) vm.tilt.collectAsStateWithLifecycle() else null
         val now by vm.now.collectAsStateWithLifecycle()
         val weather by vm.weather.collectAsStateWithLifecycle()
         val fix = remember(now / 600_000) { vm.g.prefs.lastFix }
         val moon = remember(now / 3_600_000) { Moon.at(now) }
+        val (phase, weatherCode) = skyFor(settings.sky, settings.livingCity, Sun.phase(now, fix?.first, fix?.second), weather?.code)
+        // The Field HUD shows the city sharp, like gameplay; menus blur it.
+        val onHud = hudHome && pager.currentPage == 0 && vm.overlay == Overlay.None
         CityBackdrop(
-            settings.backdrop,
+            if (onHud && settings.backdrop == Backdrop.CITY_BLURRED) Backdrop.CITY else settings.backdrop,
             tilt = tilt,
-            phase = if (settings.livingCity) Sun.phase(now, fix?.first, fix?.second) else SkyPhase.DUSK,
-            weatherCode = if (settings.livingCity) weather?.code else null,
+            phase = phase,
+            weatherCode = weatherCode,
             moon = moon,
+            animate = !powerSave,
         )
         Column(Modifier.fillMaxSize()) {
             val swipeDown = Modifier.pointerInput(Unit) {
@@ -137,13 +161,32 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
                     IsacTabs(TABS, pager.currentPage, selectTab, Modifier.padding(horizontal = 14.dp))
                 }
             }
+            // Gestures on the home and loadout pages: swipe down for notifications, swipe up for search,
+            // double-tap an empty spot to lock.
+            val gesturePage = settings.gestures && pager.currentPage <= 1
+            val gestures = if (!gesturePage) Modifier else Modifier
+                .pointerInput(Unit) {
+                    var total = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { total = 0f },
+                        onDragEnd = {
+                            if (total > 140f) expandNotifications(context)
+                            else if (total < -140f) scope.launch { pager.animateScrollToPage(2); vm.searchFocus.tryEmit(Unit) }
+                        },
+                    ) { _, drag -> total += drag }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(onDoubleTap = {
+                        if (!GestureService.lock()) vm.showToast("To lock with a double-tap, turn on SHD ISAC gestures in Settings, under System.")
+                    })
+                }
             // On the map, drags pan the map instead of changing page; use the tabs to leave it.
             HorizontalPager(
-                pager, Modifier.weight(1f).fillMaxWidth(), beyondViewportPageCount = 1,
+                pager, Modifier.weight(1f).fillMaxWidth().then(gestures), beyondViewportPageCount = 1,
                 userScrollEnabled = pager.currentPage != 3,
             ) { page ->
                 when (page) {
-                    0 -> IntelPage(vm)
+                    0 -> if (hudHome) HudPage(vm) else IntelPage(vm)
                     1 -> LoadoutPage(vm, onOpenInventory = { scope.launch { pager.animateScrollToPage(2) } })
                     2 -> InventoryPage(vm)
                     else -> MapPage(vm, active = pager.currentPage == 3)
@@ -171,6 +214,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
             Overlay.Settings -> SettingsScreen(vm)
             is Overlay.WidgetPicker -> WidgetPicker(vm, o.slot, onPickWidget)
             is Overlay.TextInput -> TextInputPanel(vm, o.kind)
+            is Overlay.Shortcut -> ShortcutPanel(vm, o.info)
             Overlay.Pulse -> PulseOverlay(vm)
             Overlay.Voice -> VoiceOverlay(vm, TABS)
         }
@@ -184,6 +228,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
 /** Opens the notification shade. Uses a hidden platform call, so it quietly does nothing if blocked. */
 @SuppressLint("WrongConstant")
 private fun expandNotifications(context: Context) {
+    if (GestureService.notifications()) return
     runCatching {
         val sbm = context.getSystemService("statusbar")
         Class.forName("android.app.StatusBarManager").getMethod("expandNotificationsPanel").invoke(sbm)

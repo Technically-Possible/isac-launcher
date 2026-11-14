@@ -3,6 +3,7 @@ package app.isac.launcher
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             LauncherRoot(vm, onPickWidget = ::pickWidget)
         }
+        acceptPinRequest(intent)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 vm.settings.collect {
@@ -93,8 +95,21 @@ class MainActivity : ComponentActivity() {
         vm.onResume()
     }
 
+    /** "Add to home screen" from a browser or app: keep the shortcut and show it in Inventory. */
+    private fun acceptPinRequest(intent: Intent?) {
+        if (intent?.action != LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT) return
+        val request = runCatching { getSystemService(LauncherApps::class.java).getPinItemRequest(intent) }.getOrNull() ?: return
+        if (request.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) return
+        val label = request.shortcutInfo?.shortLabel
+        if (runCatching { request.accept() }.getOrDefault(false)) {
+            lifecycleScope.launch { graph.apps.refreshPinned() }
+            vm.showToast("New item added to inventory: ${label ?: "shortcut"}.")
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        acceptPinRequest(intent)
         // Pressing Home while the launcher is showing.
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
             vm.homeEvents.tryEmit(Unit)

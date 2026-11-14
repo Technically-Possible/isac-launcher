@@ -186,6 +186,11 @@ fun ItemDetails(vm: LauncherViewModel, entry: AppEntry) {
             // actions
             Column(Modifier.fillMaxWidth().background(Color(0xF0090A0B))) {
                 val equipped = entry.key in loadout
+                // The app's own shortcuts, like "New chat". Only the default home app gets these.
+                val shortcuts = remember(entry.key) { vm.g.apps.shortcuts(entry) }
+                shortcuts.forEach { sc ->
+                    Action("›", (sc.shortLabel ?: sc.longLabel ?: "Shortcut").toString().uppercase(), "Shortcut") { vm.g.apps.startShortcut(sc); close() }
+                }
                 Action("+", if (equipped) "RE-EQUIP" else "EQUIP", "Put in a loadout slot") { vm.overlay = Overlay.SlotPicker(entry) }
                 Action("▤", if (entry.key in stash) "REMOVE FROM ${s.stashName.uppercase()}" else "ADD TO ${s.stashName.uppercase()}", "App folder") {
                     vm.g.prefs.toggleStash(entry.key)
@@ -229,6 +234,27 @@ private fun Action(key: String, title: String, hint: String, danger: Boolean = f
         Txt(hint, Type.body(12.sp, Ink.G2))
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(Ink.Line))
+}
+
+/** A pinned shortcut (for example a web app added from the browser): open it or remove it. */
+@Composable
+fun ShortcutPanel(vm: LauncherViewModel, sc: android.content.pm.ShortcutInfo) {
+    val close = { vm.overlay = Overlay.None }
+    Scrim(close) {
+        Panel(Modifier.align(Alignment.Center).padding(horizontal = 18.dp).fillMaxWidth().tap({}), padding = 0.dp, fill = Ink.GlassDeep) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                app.isac.launcher.ui.pages.ShortcutGlyph(vm, sc, 44.dp)
+                Gap(14.dp)
+                Column {
+                    Label("SHORTCUT")
+                    VGap(4.dp)
+                    Txt((sc.shortLabel ?: "Shortcut").toString().uppercase(), Type.title(22.sp), maxLines = 2)
+                }
+            }
+            Action("›", "OPEN", "Launch") { vm.g.apps.startShortcut(sc); close() }
+            Action("×", "REMOVE", "Take it out of your inventory", danger = true) { vm.g.haptics.heavy(); vm.g.apps.unpin(sc); close() }
+        }
+    }
 }
 
 // ------------------------------------------------------------------ slot picker

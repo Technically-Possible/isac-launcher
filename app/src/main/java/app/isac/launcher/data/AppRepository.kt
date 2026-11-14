@@ -1,18 +1,24 @@
 package app.isac.launcher.data
 
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.graphics.Rect
+import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -34,17 +40,33 @@ data class AppEntry(
     val component: ComponentName,
     val user: UserHandle,
     val isWork: Boolean,
+    /** In Android's private space (Android 15+). Kept out of the normal lists. */
+    val isPrivate: Boolean,
     val category: Category,
     val firstInstall: Long,
     val info: LauncherActivityInfo,
 )
+
+/** The private space profile, if the phone has one and ISAC is allowed to see it. */
+data class PrivateSpace(val user: UserHandle, val locked: Boolean)
 
 class AppRepository(private val context: Context, private val scope: CoroutineScope) {
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
     private val userManager = context.getSystemService(UserManager::class.java)
 
     private val _apps = MutableStateFlow<List<AppEntry>>(emptyList())
+    /** Every app outside private space. */
     val apps: StateFlow<List<AppEntry>> = _apps
+
+    private val _privateApps = MutableStateFlow<List<AppEntry>>(emptyList())
+    val privateApps: StateFlow<List<AppEntry>> = _privateApps
+
+    private val _privateSpace = MutableStateFlow<PrivateSpace?>(null)
+    val privateSpace: StateFlow<PrivateSpace?> = _privateSpace
+
+    private val _pinned = MutableStateFlow<List<ShortcutInfo>>(emptyList())
+    /** Shortcuts pinned to ISAC, like web apps added from the browser. */
+    val pinned: StateFlow<List<ShortcutInfo>> = _pinned
 
     private val _installed = MutableSharedFlow<AppEntry>(extraBufferCapacity = 4)
     /** Emits apps that were just installed, for the "new item" pop-up. */
@@ -65,16 +87,38 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
         override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
             scope.launch { refresh() }
         }
+        override fun onShortcutsChanged(packageName: String, shortcuts: MutableList<ShortcutInfo>, user: UserHandle) {
+            scope.launch { refreshPinned() }
+        }
     }
 
     init {
         launcherApps.registerCallback(callback, Handler(Looper.getMainLooper()))
+        // Private space and work profile locking and unlocking.
+        val filter = IntentFilter().apply {
+            listOf(
+                "android.intent.action.PROFILE_AVAILABLE", "android.intent.action.PROFILE_UNAVAILABLE",
+                "android.intent.action.MANAGED_PROFILE_AVAILABLE", "android.intent.action.MANAGED_PROFILE_UNAVAILABLE",
+            ).forEach(::addAction)
+        }
+        ContextCompat.registerReceiver(context, object : BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) { scope.launch { refresh() } }
+        }, filter, ContextCompat.RECEIVER_EXPORTED)
+    }
+
+    private fun isPrivate(user: UserHandle): Boolean {
+        if (Build.VERSION.SDK_INT < 35) return false
+        return runCatching { launcherApps.getLauncherUserInfo(user)?.userType == UserManager.USER_TYPE_PROFILE_PRIVATE }
+            .getOrDefault(false)
     }
 
     suspend fun refresh() {
-        val list = withContext(Dispatchers.IO) {
+        val (list, privateUser) = withContext(Dispatchers.IO) {
             val me = Process.myUserHandle()
-            userManager.userProfiles.flatMap { user ->
+            var priv: UserHandle? = null
+            val all = launcherApps.profiles.flatMap { user ->
+                val private = isPrivate(user)
+                if (private) priv = user
                 val serial = userManager.getSerialNumberForUser(user)
                 runCatching { launcherApps.getActivityList(null, user) }.getOrDefault(emptyList())
                     .filter { it.componentName.packageName != context.packageName }
@@ -85,15 +129,20 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
                             pkg = info.componentName.packageName,
                             component = info.componentName,
                             user = user,
-                            isWork = user != me,
+                            isWork = user != me && !private,
+                            isPrivate = private,
                             category = categoryOf(info.applicationInfo),
                             firstInstall = info.firstInstallTime,
                             info = info,
                         )
                     }
             }.sortedBy { it.label.lowercase() }
+            all to priv
         }
-        _apps.value = list
+        _apps.value = list.filter { !it.isPrivate }
+        _privateApps.value = list.filter { it.isPrivate }
+        _privateSpace.value = privateUser?.let { PrivateSpace(it, runCatching { userManager.isQuietModeEnabled(it) }.getOrDefault(true)) }
+        refreshPinned()
     }
 
     fun launch(entry: AppEntry, bounds: Rect? = null) {
@@ -109,6 +158,58 @@ class AppRepository(private val context: Context, private val scope: CoroutineSc
             .putExtra(Intent.EXTRA_USER, entry.user)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
+    }
+
+    // ---- private space ----
+
+    /**
+     * Locks or unlocks private space. Android only allows this for the default home app.
+     * Returns false if it wasn't allowed.
+     */
+    fun setPrivateLocked(locked: Boolean): Boolean {
+        val ps = _privateSpace.value ?: return false
+        return runCatching { userManager.requestQuietModeEnabled(locked, ps.user); true }.getOrDefault(false)
+    }
+
+    // ---- shortcuts ----
+
+    /** Shortcuts are only shared with the default home app. */
+    val canUseShortcuts: Boolean get() = runCatching { launcherApps.hasShortcutHostPermission() }.getOrDefault(false)
+
+    /** An app's long-press shortcuts (like "New chat" or "Navigate home"). */
+    fun shortcuts(entry: AppEntry): List<ShortcutInfo> {
+        if (!canUseShortcuts) return emptyList()
+        val q = LauncherApps.ShortcutQuery()
+            .setPackage(entry.pkg)
+            .setActivity(entry.component)
+            .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST)
+        return runCatching { launcherApps.getShortcuts(q, entry.user) }.getOrNull().orEmpty()
+            .filter { it.isEnabled }
+            .sortedWith(compareBy({ !it.isDeclaredInManifest }, { it.rank }))
+            .take(4)
+    }
+
+    suspend fun refreshPinned() {
+        if (!canUseShortcuts) { _pinned.value = emptyList(); return }
+        _pinned.value = withContext(Dispatchers.IO) {
+            launcherApps.profiles.filter { !isPrivate(it) }.flatMap { user ->
+                val q = LauncherApps.ShortcutQuery().setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                runCatching { launcherApps.getShortcuts(q, user) }.getOrNull().orEmpty()
+            }.filter { it.isEnabled }.sortedBy { it.shortLabel?.toString()?.lowercase() }
+        }
+    }
+
+    fun startShortcut(info: ShortcutInfo) {
+        runCatching { launcherApps.startShortcut(info, null, null) }
+    }
+
+    fun shortcutIcon(info: ShortcutInfo, dpi: Int): Drawable? = runCatching { launcherApps.getShortcutIconDrawable(info, dpi) }.getOrNull()
+
+    /** Removes a shortcut that was pinned to ISAC. */
+    fun unpin(info: ShortcutInfo) {
+        val keep = _pinned.value.filter { it.`package` == info.`package` && it.userHandle == info.userHandle && it.id != info.id }.map { it.id }
+        runCatching { launcherApps.pinShortcuts(info.`package`, keep, info.userHandle) }
+        scope.launch { refreshPinned() }
     }
 
     private fun categoryOf(ai: ApplicationInfo): Category {
