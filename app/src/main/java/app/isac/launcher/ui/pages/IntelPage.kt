@@ -210,8 +210,9 @@ fun IntelPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth().weight(1.6f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PhotoFrame(vm, frame = 0, Modifier.weight(1f).fillMaxHeight())
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                WeatherPanel(vm, Modifier.weight(1f).fillMaxWidth())
-                MoonPanel(vm, Modifier.weight(1f).fillMaxWidth())
+                // Conditions has more lines than the moon, so it gets a little more of the height.
+                WeatherPanel(vm, Modifier.weight(1.25f).fillMaxWidth())
+                MoonPanel(vm, Modifier.weight(0.85f).fillMaxWidth())
             }
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
