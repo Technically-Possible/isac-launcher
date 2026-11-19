@@ -22,9 +22,10 @@ data class SearchHit(val kind: String, val title: String, val detail: String, va
 object Search {
     // ---------------------------------------------------------------- calculator
 
-    /** Works out sums like "12.5 * (3 + 4)" or "2^10". Returns null if the text isn't a sum. */
+    /** Works out sums like "12.5 * (3 + 4)", "12 x 7" or "2^10". Returns null if the text isn't a sum. */
     fun calculate(text: String): String? {
-        val src = text.replace("×", "*").replace("÷", "/").replace(",", "").replace(" ", "")
+        val src = text.replace(Regex("(?<=[\\d)])\\s*[xX]\\s*(?=[\\d(.])"), "*")
+            .replace("×", "*").replace("÷", "/").replace(",", "").replace(" ", "")
         if (src.none { it in "+-*/^%" } || src.none(Char::isDigit) || !src.all { it.isDigit() || it in "+-*/^%.()" }) return null
         var i = 0
         fun expr(): Double {
@@ -104,7 +105,12 @@ object Search {
         "Home app" to Settings.ACTION_HOME_SETTINGS, "Privacy" to Settings.ACTION_PRIVACY_SETTINGS,
     )
 
-    fun settings(query: String): List<SearchHit> = SETTINGS.filter { it.first.contains(query, true) }.take(3).map { (name, action) ->
+    /** Letters and digits only, so "wifi" finds Wi-Fi and "dnd" doesn't have to match spacing. */
+    private fun squash(s: String) = s.lowercase().filter(Char::isLetterOrDigit)
+
+    fun settings(query: String): List<SearchHit> = squash(query).let { q ->
+        if (q.isEmpty()) emptyList() else SETTINGS.filter { squash(it.first).contains(q) }.take(3)
+    }.map { (name, action) ->
         SearchHit("SETTING", name, "Android settings", Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 

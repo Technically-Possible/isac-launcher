@@ -254,6 +254,8 @@ fun SettingsScreen(vm: LauncherViewModel) {
             if (junk.isNotEmpty()) Opt("Junk items", "${junk.size} HIDDEN", "Puts every item you marked as junk back in your inventory.",
                 action = { vm.g.prefs.clearJunk() }) else null,
             Opt("Android settings", null, "Opens the phone's main settings.", action = { open(AndroidSettings.ACTION_SETTINGS) }),
+            Opt("Credits", null, "Who made SHD ISAC, a link to their site, and the open-source projects and free services it's built on.",
+                action = { vm.overlay = Overlay.Credits }),
         )
     }
     val focused = options.firstOrNull { it.label == selected } ?: options.first()

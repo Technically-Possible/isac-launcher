@@ -99,7 +99,8 @@ class WeatherRepository(private val context: Context, private val prefs: Prefs) 
     }
 
     private suspend fun fetch(lat: Double, lon: Double, place: String): Weather? = withContext(Dispatchers.IO) {
-        val url = "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f".format(Locale.US, lat, lon) +
+        // Rounded to two decimal places (about 1 km): plenty for a forecast, and no more precise than it needs to be.
+        val url = "https://api.open-meteo.com/v1/forecast?latitude=%.2f&longitude=%.2f".format(Locale.US, lat, lon) +
             "&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min" +
             "&timezone=auto&forecast_days=1"
         val body = get(url) ?: return@withContext null

@@ -115,7 +115,7 @@ fun PulseOverlay(vm: LauncherViewModel) {
                     when {
                         trackingAddress != null -> "TRACKING"
                         scanning -> "SCANNING…"
-                        else -> "${signals.size + wifi} SIGNALS IN RANGE"
+                        else -> (signals.size + wifi).let { n -> "$n ${if (n == 1) "SIGNAL" else "SIGNALS"} IN RANGE" }
                     },
                     color = Ink.Orange, size = 11f,
                 )

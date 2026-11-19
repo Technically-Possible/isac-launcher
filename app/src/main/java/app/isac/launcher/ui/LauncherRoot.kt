@@ -58,6 +58,7 @@ import app.isac.launcher.ui.overlays.PulseOverlay
 import app.isac.launcher.ui.overlays.VoiceOverlay
 import app.isac.launcher.ui.overlays.LoadingScreen
 import app.isac.launcher.ui.overlays.SettingsScreen
+import app.isac.launcher.ui.overlays.CreditsScreen
 import app.isac.launcher.ui.overlays.SlotPicker
 import app.isac.launcher.ui.overlays.StashPanel
 import app.isac.launcher.ui.overlays.Subtitle
@@ -122,6 +123,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
         vm.overlay = when (vm.overlay) {
             is Overlay.SlotPicker -> (vm.overlay as Overlay.SlotPicker).entry.let { Overlay.Details(it) }
             is Overlay.TextInput -> Overlay.Settings
+            Overlay.Credits -> Overlay.Settings
             else -> Overlay.None
         }
     }
@@ -212,6 +214,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
             is Overlay.SlotPicker -> SlotPicker(vm, o.entry)
             Overlay.Stash -> StashPanel(vm)
             Overlay.Settings -> SettingsScreen(vm)
+            Overlay.Credits -> CreditsScreen(vm)
             is Overlay.WidgetPicker -> WidgetPicker(vm, o.slot, onPickWidget)
             is Overlay.TextInput -> TextInputPanel(vm, o.kind)
             is Overlay.Shortcut -> ShortcutPanel(vm, o.info)

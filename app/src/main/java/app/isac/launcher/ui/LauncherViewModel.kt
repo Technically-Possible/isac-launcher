@@ -54,6 +54,7 @@ sealed interface Overlay {
     data class SlotPicker(val entry: AppEntry) : Overlay
     data object Stash : Overlay
     data object Settings : Overlay
+    data object Credits : Overlay
     data class WidgetPicker(val slot: WidgetSlot) : Overlay
     data class TextInput(val kind: InputKind) : Overlay
     data object Pulse : Overlay
@@ -113,10 +114,10 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     val privateApps = g.apps.privateApps
     val pinned = g.apps.pinned
 
-    /** Apps you tend to open around this time of day, leaving out what's already in the loadout. */
-    val suggestions: StateFlow<List<AppEntry>> = combine(g.apps.apps, g.usage.snapshot, g.prefs.loadout) { list, snap, slots ->
+    /** Apps you tend to open around this time of day, leaving out what's already in the loadout or marked as junk. */
+    val suggestions: StateFlow<List<AppEntry>> = combine(g.apps.apps, g.usage.snapshot, g.prefs.loadout, g.prefs.junk) { list, snap, slots, junk ->
         if (!snap.hasAccess) emptyList() else list
-            .filter { it.key !in slots && !it.isWork }
+            .filter { it.key !in slots && it.key !in junk && !it.isWork }
             .sortedWith(compareByDescending<AppEntry> { snap.nearNow[it.pkg] ?: 0 }.thenByDescending { snap.byPackage[it.pkg]?.foreground7d ?: 0L })
             .filter { (snap.nearNow[it.pkg] ?: 0) > 0 || (snap.byPackage[it.pkg]?.foreground7d ?: 0L) > 0 }
             .take(4)
