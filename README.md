@@ -240,7 +240,7 @@ The dusk skyline behind every page is drawn live, and it reacts to the phone's s
    - SHD ISAC isn't on the Play Store, so Play Protect may ask you to confirm.
 3. Open **SHD ISAC**, tap **Settings** at the bottom, and choose **Set as home app**. Pick SHD ISAC.
 
-Your old launcher stays installed. You can switch back any time (see [the guide](#go-back-to-your-old-launcher)).
+Your old launcher stays installed. You can switch back any time: see *Go back to your old launcher* under [Guides](#guides).
 
 **Requirements:**
 - Android 8.0 or later.
