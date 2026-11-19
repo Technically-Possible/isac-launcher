@@ -277,7 +277,7 @@ fun SettingsScreen(vm: LauncherViewModel) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (atTop) 10.dp else 14.dp), verticalAlignment = Alignment.Bottom) {
                 Txt("SETTINGS", Type.title(28.sp))
                 Spacer(Modifier.weight(1f))
-                Label("${Lex.ai} 0.3", color = Ink.G2, size = 11f)
+                Label("${Lex.ai} ${app.isac.launcher.ui.components.appVersion()}", color = Ink.G2, size = 11f)
             }
             IsacTabs(tabs, tab, { tab = it; selected = "" }, Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {

@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The fonts in app/src/main/res/font are Titillium Web, under the SIL Open Font
-License (see licenses/TitilliumWeb-OFL.txt). The MIT licence above covers the
-code only. Tom Clancy's The Division, SHD and ISAC are trademarks of Ubisoft.
+The fonts in app/src/main/res/font (Titillium Web, Chakra Petch, Michroma and
+JetBrains Mono) are under the SIL Open Font License; see the licenses/ folder.
+The MIT licence above covers the code only. Tom Clancy's The Division and names
+from the game, such as SHD, ISAC, Black Tusk and DIAMOND, belong to Ubisoft.

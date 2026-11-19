@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png" alt="SHD ISAC: an Android launcher inspired by the menus and HUD of The Division 2" width="100%">
+  <img src="docs/banner.png" alt="SHD ISAC: an Android launcher inspired by the menus and HUD of The Division 2, with Division and Black Tusk looks" width="100%">
 </p>
 
 <h3 align="center">Turn your phone into an agent's ISAC.</h3>
@@ -18,6 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/Technically-Possible/isac-launcher/releases/latest"><b>Download the APK</b></a> ·
+  <a href="#factions">Factions</a> ·
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#guides">Guides</a> ·
@@ -42,6 +43,7 @@ SHD ISAC is a full Android home screen, styled after the menus and HUD of Tom Cl
 - **Inventory:** every app is loot, with a rarity that comes from how much you use it.
 - **Map:** a fog-of-war map that clears as you explore, with levels, cities and landmark caches.
 - **Pulse:** a radar scan of nearby devices, with ISAC reading your status aloud.
+- **Factions:** play as the Division (ISAC) or Black Tusk (DIAMOND). Each one re-skins the whole launcher, and more factions are on the way.
 
 Your level comes only from exploring, never from step counts. It works however you get around: on foot, by wheelchair, by bike, by bus or by car.
 
@@ -49,7 +51,47 @@ Your level comes only from exploring, never from step counts. It works however y
 </tr>
 </table>
 
+## Factions
+
+<table>
+<tr>
+<td width="34%"><img src="docs/gifs/factions.gif" alt="The faction picker previewing the Division and Black Tusk looks, then deploying as Black Tusk"></td>
+<td>
+
+### Pick a side
+
+The first time SHD ISAC starts, it asks where your allegiance lies. Your choice re-skins the whole launcher. Tap a faction on the picker and the screen previews it before you commit. You can switch any time from **Settings → Display → Faction**.
+
+- **Division · ISAC:** the original look, with warm orange rings, field-worn panels and the dusk city.
+- **Black Tusk · DIAMOND:** crimson and ice white on black.
+  - **Look:** wide angular type, cut-corner panels with heavy brackets, rhombus markers and a void-grid backdrop.
+  - **Names:** the Inventory becomes the Armory and the Map becomes the Sector. Rarities run from Classified to Decommissioned.
+  - **Voice:** DIAMOND speaks in short, clipped lines.
+- **More factions are coming soon.** Interfaces for the Rogue network and the Emerald Network are already being built. You can see them on the picker today, marked WIP.
+
+</td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td align="center" width="25%"><img src="docs/screens/diamond-intel.png" alt="Black Tusk Intel page"><br><sub>INTEL</sub></td>
+<td align="center" width="25%"><img src="docs/screens/diamond-loadout.png" alt="Black Tusk Loadout page"><br><sub>LOADOUT</sub></td>
+<td align="center" width="25%"><img src="docs/screens/diamond-armory.png" alt="Black Tusk Armory page"><br><sub>ARMORY</sub></td>
+<td align="center" width="25%"><img src="docs/screens/diamond-sector.png" alt="Black Tusk Sector map"><br><sub>SECTOR</sub></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/screens/diamond-core.png" alt="The DIAMOND core scan"><br><sub>DIAMOND CORE</sub></td>
+<td align="center"><img src="docs/screens/diamond-dossier.png" alt="An item's dossier in the Black Tusk look"><br><sub>ITEM DOSSIER</sub></td>
+<td align="center"><img src="docs/screens/diamond-loading.png" alt="The Black Tusk loading screen"><br><sub>DEPLOYMENT</sub></td>
+<td align="center"><img src="docs/screens/diamond-settings.png" alt="Settings in the Black Tusk look"><br><sub>SETTINGS</sub></td>
+</tr>
+</table>
+<p align="center"><sub>BLACK TUSK · DIAMOND</sub></p>
+
 ## Features
+
+<sub>The screens in this section show the Division look. The Black Tusk versions are under [Factions](#factions).</sub>
 
 ### Intel: your dashboard
 
@@ -238,7 +280,8 @@ The dusk skyline behind every page is drawn live, and it reacts to the phone's s
 1. On your phone, open the [latest release](https://github.com/Technically-Possible/isac-launcher/releases/latest) and download the `.apk` file.
 2. Open the file. If Android asks, allow your browser or Files app to install apps.
    - SHD ISAC isn't on the Play Store, so Play Protect may ask you to confirm.
-3. Open **SHD ISAC**, tap **Settings** at the bottom, and choose **Set as home app**. Pick SHD ISAC.
+3. Open **SHD ISAC** and choose your faction: Division or Black Tusk.
+4. Tap **Settings** at the bottom and choose **Set as home app**. Pick SHD ISAC.
 
 Your old launcher stays installed. You can switch back any time: see *Go back to your old launcher* under [Guides](#guides).
 
@@ -263,6 +306,16 @@ Every permission is optional. The launcher works without them, and each feature 
 | Accessibility service | Only for double-tap to lock and the notifications gesture. It doesn't read the screen |
 
 ## Guides
+
+<details>
+<summary><b>Switch faction</b></summary>
+
+Go to **Settings → Display → Faction** and tap it to open the picker. You can also use the ‹ › arrows to switch straight between the factions that are ready. Your loadout, stash, map and settings stay the same, so only the look changes.
+
+Under Black Tusk:
+- **Colours and sky:** the interface is always crimson and the city becomes the void grid. Accent colours and city skies you've unlocked come back when you return to the Division.
+- **Rogue and Emerald Network:** marked WIP. They can't be chosen yet.
+</details>
 
 <details>
 <summary><b>Set up your photo frames</b></summary>
@@ -432,7 +485,8 @@ Built with:
 - [Overpass API](https://overpass-api.de): landmark and accessibility queries.
 - [Open-Meteo](https://open-meteo.com): weather and town search, under CC BY 4.0.
 - [Vosk](https://alphacephei.com/vosk) by Alpha Cephei: offline speech recognition, under Apache 2.0.
-- [Titillium Web](https://fonts.google.com/specimen/Titillium+Web): the typeface, under the SIL Open Font License.
+- [Titillium Web](https://fonts.google.com/specimen/Titillium+Web): the Division typeface, under the SIL Open Font License.
+- [Chakra Petch](https://fonts.google.com/specimen/Chakra+Petch), [Michroma](https://fonts.google.com/specimen/Michroma) and [JetBrains Mono](https://www.jetbrains.com/lp/mono/): the Black Tusk typefaces, under the SIL Open Font License.
 
 The photos in the screenshots are public-domain images from Wikimedia Commons:
 - [Dusk view of the Lincoln Memorial, Washington Monument and U.S. Capitol](https://commons.wikimedia.org/wiki/File:Dusk_view_of_the_Lincoln_Memorial,_Washington_Monument_and_U.S._Capitol,_Washington,_D.C_LCCN2011631138.tif)
@@ -450,6 +504,6 @@ The demo runs in Washington, D.C., with the White House as Base of Operations, b
 
 SHD ISAC is a free, fan-made launcher inspired by the menus of *Tom Clancy's The Division 2*. All its artwork and icons are original, and the city backdrop is drawn in code.
 
-It isn't affiliated with or endorsed by Ubisoft or Massive Entertainment. *Tom Clancy's The Division*, SHD and ISAC are trademarks of Ubisoft.
+It isn't affiliated with or endorsed by Ubisoft or Massive Entertainment. *Tom Clancy's The Division* and names from the game, such as SHD, ISAC, Black Tusk and DIAMOND, belong to Ubisoft. The faction emblems in the launcher are original, not the game's logos.
 
 The code is under the [MIT licence](LICENSE).

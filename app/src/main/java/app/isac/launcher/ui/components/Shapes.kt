@@ -66,3 +66,12 @@ fun DrawScope.cornerBrackets(color: Color, length: Float = 12.dp.toPx(), width: 
     drawRect(color, Offset(0f, h - width), Size(length, width))
     drawRect(color, Offset(0f, h - length), Size(width, length))
 }
+
+/** The installed version, such as "1.2", for the Settings and Credits headers. */
+@androidx.compose.runtime.Composable
+fun appVersion(): String {
+    val c = androidx.compose.ui.platform.LocalContext.current
+    return androidx.compose.runtime.remember {
+        runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull() ?: ""
+    }
+}

@@ -59,7 +59,8 @@ private val BUILT_WITH = listOf(
     Triple("Overpass API", "Finds nearby landmarks for caches, and accessible places.", "https://overpass-api.de"),
     Triple("Open-Meteo", "Weather and town search, under CC BY 4.0.", "https://open-meteo.com"),
     Triple("Vosk", "Offline voice commands, by Alpha Cephei, under Apache 2.0.", "https://alphacephei.com/vosk"),
-    Triple("Titillium Web", "The typeface, under the SIL Open Font License.", "https://fonts.google.com/specimen/Titillium+Web"),
+    Triple("Titillium Web", "The Division typeface, under the SIL Open Font License.", "https://fonts.google.com/specimen/Titillium+Web"),
+    Triple("Chakra Petch, Michroma, JetBrains Mono", "The Black Tusk typefaces, under the SIL Open Font License.", "https://fonts.google.com/specimen/Chakra+Petch"),
 )
 
 @Composable
@@ -77,7 +78,7 @@ fun CreditsScreen(vm: LauncherViewModel) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (atTop) 10.dp else 14.dp), verticalAlignment = Alignment.Bottom) {
                 Txt("CREDITS", Type.title(28.sp))
                 Spacer(Modifier.weight(1f))
-                Label("${app.isac.launcher.ui.theme.Lex.ai} 0.3", color = Ink.G2, size = 11f)
+                Label("${app.isac.launcher.ui.theme.Lex.ai} ${app.isac.launcher.ui.components.appVersion()}", color = Ink.G2, size = 11f)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                 VGap(14.dp)
@@ -113,7 +114,7 @@ fun CreditsScreen(vm: LauncherViewModel) {
                 SectionHeader("FAN PROJECT")
                 Txt(
                     "A free, fan-made launcher inspired by the menus of Tom Clancy's The Division 2. All artwork and icons are original. " +
-                        "Not affiliated with or endorsed by Ubisoft or Massive Entertainment. Tom Clancy's The Division, SHD and ISAC are Ubisoft's trademarks.",
+                        "Not affiliated with or endorsed by Ubisoft or Massive Entertainment. Tom Clancy's The Division and names from the game, such as SHD, ISAC, Black Tusk and DIAMOND, belong to Ubisoft.",
                     Type.body(13.5.sp, Ink.G2),
                 )
                 VGap(18.dp)
