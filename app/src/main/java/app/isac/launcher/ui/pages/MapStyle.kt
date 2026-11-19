@@ -106,7 +106,50 @@ private val DIAMOND_COLOURS = mapOf(
 /** The map style for the current look, with the explored edge and caches in the accent colour. */
 internal fun mapStyleFor(diamond: Boolean, accentHex: String): String {
     if (!diamond) return ISAC_MAP_STYLE.replace("#FF6D10", accentHex)
-    var s = ISAC_MAP_STYLE.replace("#FF6D10", "#F22D41")
+    // DIAMOND draws caches, your position and Base as rhombus markers (images added with the style).
+    var s = ISAC_MAP_STYLE
+        .replace(Regex("""\{ "id": "caches", "type": "circle".*?"circle-stroke-width": 2 \} \},""", RegexOption.DOT_MATCHES_ALL),
+            """{ "id": "caches", "type": "symbol", "source": "caches", "minzoom": 11,
+      "layout": { "icon-image": ["case", ["get", "found"], "dm-found", "dm-cache"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 11, 0.45, 16, 1.0], "icon-allow-overlap": true, "icon-ignore-placement": true } },""")
+        .replace(Regex("""\{ "id": "base", "type": "circle".*?"circle-stroke-width": 2.5 \} \},""", RegexOption.DOT_MATCHES_ALL),
+            """{ "id": "base", "type": "symbol", "source": "base",
+      "layout": { "icon-image": "dm-base", "icon-allow-overlap": true, "icon-ignore-placement": true } },""")
+        .replace(Regex("""\{ "id": "me-halo", "type": "circle".*?"circle-opacity": 0.18 \} \},""", RegexOption.DOT_MATCHES_ALL),
+            """{ "id": "me-halo", "type": "symbol", "source": "me",
+      "layout": { "icon-image": "dm-halo", "icon-allow-overlap": true, "icon-ignore-placement": true } },""")
+        .replace(Regex("""\{ "id": "me", "type": "circle".*?"circle-stroke-width": 1.5 \} \}""", RegexOption.DOT_MATCHES_ALL),
+            """{ "id": "me", "type": "symbol", "source": "me",
+      "layout": { "icon-image": "dm-me", "icon-allow-overlap": true, "icon-ignore-placement": true } }""")
+    s = s.replace("#FF6D10", "#F22D41")
     DIAMOND_COLOURS.forEach { (from, to) -> s = s.replace(from, to) }
     return s
+}
+
+/** The rhombus marker images DIAMOND's map style uses, drawn at the screen's density. */
+internal fun diamondMarkers(density: Float, dpi: Int): Map<String, android.graphics.Bitmap> {
+    val crimson = 0xFFF22D41.toInt()
+    val ice = 0xFFF2F5F8.toInt()
+    val voidBlack = 0xFF0B0D10.toInt()
+    fun make(sizeDp: Float, draw: (android.graphics.Canvas, Float) -> Unit): android.graphics.Bitmap {
+        val px = (sizeDp * density).toInt().coerceAtLeast(8)
+        val bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
+        bmp.density = dpi
+        draw(android.graphics.Canvas(bmp), px.toFloat())
+        return bmp
+    }
+    fun rhombus(c: Float, r: Float) = android.graphics.Path().apply {
+        moveTo(c, c - r); lineTo(c + r, c); lineTo(c, c + r); lineTo(c - r, c); close()
+    }
+    fun paint(color: Int, stroke: Float = 0f) = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        if (stroke > 0f) { style = android.graphics.Paint.Style.STROKE; strokeWidth = stroke; strokeJoin = android.graphics.Paint.Join.MITER }
+    }
+    return mapOf(
+        "dm-cache" to make(18f) { cv, s -> val c = s / 2; cv.drawPath(rhombus(c, c * 0.78f), paint(voidBlack)); cv.drawPath(rhombus(c, c * 0.78f), paint(crimson, 2.2f * density)) },
+        "dm-found" to make(18f) { cv, s -> val c = s / 2; cv.drawPath(rhombus(c, c * 0.8f), paint(crimson)); cv.drawPath(rhombus(c, c * 0.8f), paint(ice, 1.6f * density)) },
+        "dm-me" to make(22f) { cv, s -> val c = s / 2; cv.drawPath(rhombus(c, c * 0.9f), paint(crimson)); cv.drawPath(rhombus(c, c * 0.38f), paint(ice)) },
+        "dm-halo" to make(44f) { cv, s -> val c = s / 2; cv.drawPath(rhombus(c, c * 0.92f), paint(0x2EF22D41)); cv.drawPath(rhombus(c, c * 0.92f), paint(0x80F22D41.toInt(), 1.2f * density)) },
+        "dm-base" to make(20f) { cv, s -> val c = s / 2; cv.drawPath(rhombus(c, c * 0.82f), paint(voidBlack)); cv.drawPath(rhombus(c, c * 0.82f), paint(crimson, 2.6f * density)); cv.drawPath(rhombus(c, c * 0.3f), paint(ice)) },
+    )
 }

@@ -42,6 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -131,7 +133,8 @@ fun PulseOverlay(vm: LauncherViewModel) {
                 hPa?.let { add("ALT ~${Sensors.altitudeMeters(it).toInt()} M") }
                 alarm?.let { add("ALARM ${shortTime(it, s.use24h).uppercase()}") }
             }.joinToString("  ·  ")
-            Label(status, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Ink.G2, size = 10f)
+            if (Ink.diamond) Txt(status.replace("  ·  ", " · "), Type.mono(10.sp, Ink.G2), Modifier.padding(horizontal = 16.dp, vertical = 6.dp), maxLines = 1)
+            else Label(status, Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Ink.G2, size = 10f)
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -141,7 +144,22 @@ fun PulseOverlay(vm: LauncherViewModel) {
                         Locator(vm, target, trackingAddress!!) { trackingAddress = null; scanner.stopTracking() }
                     }
                     else -> Column(Modifier.fillMaxSize()) {
-                        Radar(signals, scanning, Modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 8.dp).aspectRatio(1f))
+                        if (Ink.diamond) {
+                            // DIAMOND: the transceiver and its log sit above a smaller rhombus scan.
+                            val online by vm.online.collectAsStateWithLifecycle()
+                            val daily by vm.directives.collectAsStateWithLifecycle()
+                            Transceiver(scanning, Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp))
+                            CoreLog(
+                                listOf(
+                                    "> DIAMOND // ONLINE" to Ink.G2,
+                                    (if (online) "> LINK_SECURE · BT-NET SYNC" else "> LINK_LOST · NO NETWORK") to (if (online) Ink.Cobalt else Ink.Amber),
+                                    (if (scanning) "> SCANNING…" else "> SCAN_COMPLETE: ${signals.size} DEVICES, $wifi NETWORKS") to Ink.G2,
+                                    "> STATUS: ${Lex.armor} ${b.percent}%. CORE ${if (b.hot) "HOT" else "NOMINAL"}. ${daily.count { !it.done }} OBJECTIVES OPEN." to Ink.White,
+                                ),
+                                Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            )
+                        }
+                        Radar(signals, scanning, Modifier.fillMaxWidth().padding(horizontal = if (Ink.diamond) 70.dp else 40.dp, vertical = 8.dp).aspectRatio(1f))
                         if (!scanner.bluetoothOn) {
                             Row(
                                 Modifier.fillMaxWidth().padding(horizontal = 16.dp).border(1.dp, Ink.Orange.copy(alpha = 0.5f))
@@ -467,5 +485,69 @@ private fun LevelBars(level: Float) {
             val h = (4 + 16 * level * (0.5f + 0.5f * sin(i * 1.3f + level * 9f))).coerceIn(3f, 20f)
             Box(Modifier.width(3.dp).height(h.dp).background(Ink.Orange))
         }
+    }
+}
+
+/**
+ * DIAMOND's transceiver: a black casing with a faceted crimson prism, flanked by voice bars that
+ * snap between heights. Everything moves in hard steps, never a soft pulse.
+ */
+@Composable
+private fun Transceiver(active: Boolean, modifier: Modifier = Modifier) {
+    val t by rememberInfiniteTransition(label = "tx").animateFloat(
+        0f, 12f, infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart), label = "txA",
+    )
+    val frame = t.toInt()
+    val pattern = listOf(0.25f, 0.9f, 0.45f, 1f, 0.3f, 0.65f, 0.5f, 0.8f, 0.35f, 0.95f, 0.4f, 0.7f)
+    val strobe = listOf(1f, 1f, 0.35f, 1f, 0.6f, 1f, 1f, 0.45f, 1f, 1f, 0.7f, 1f)
+    val octagon = androidx.compose.foundation.shape.GenericShape { size, _ ->
+        val c = 18.dp.value * (size.height / 132.dp.value).coerceAtMost(3f)
+        moveTo(c, 0f); lineTo(size.width - c, 0f); lineTo(size.width, c); lineTo(size.width, size.height - c)
+        lineTo(size.width - c, size.height); lineTo(c, size.height); lineTo(0f, size.height - c); lineTo(0f, c); close()
+    }
+    Box(
+        modifier.size(width = 300.dp, height = 128.dp)
+            .background(Brush.verticalGradient(listOf(Color(0xFF121519), Color(0xFF07080A))), octagon)
+            .border(1.dp, Color(0xFF2A2F37), octagon),
+    ) {
+        Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+            repeat(8) { i ->
+                val h = if (active) pattern[(frame + i * 5) % 12] else 0.22f
+                Box(Modifier.padding(horizontal = 2.dp).width(4.dp).height((66 * h).dp).background(if (i % 3 == 1) Ink.Orange else Ink.White))
+            }
+            Spacer(Modifier.width(16.dp))
+            Canvas(Modifier.size(70.dp).graphicsLayer { alpha = if (active) strobe[frame % 12] else 1f }) {
+                val c = center
+                val r = size.minDimension / 2
+                fun tri(a: Offset, b: Offset, col: Color) = drawPath(Path().apply { moveTo(c.x, c.y); lineTo(a.x, a.y); lineTo(b.x, b.y); close() }, col)
+                val top = Offset(c.x, c.y - r); val right = Offset(c.x + r, c.y); val bottom = Offset(c.x, c.y + r); val left = Offset(c.x - r, c.y)
+                tri(left, top, Color(0xFFFF3347))
+                tri(top, right, Color(0xFFE6192E))
+                tri(right, bottom, Color(0xFFA50F20))
+                tri(bottom, left, Color(0xFFC81427))
+                drawPath(app.isac.launcher.ui.components.rhombusPath(c, r * 0.42f), Color.White.copy(alpha = 0.55f), style = Stroke(1.dp.toPx()))
+                drawPath(app.isac.launcher.ui.components.rhombusPath(c, r), Color(0xFFFF6B78), style = Stroke(1.dp.toPx()))
+            }
+            Spacer(Modifier.width(16.dp))
+            repeat(8) { i ->
+                val h = if (active) pattern[(frame + (7 - i) * 5 + 3) % 12] else 0.22f
+                Box(Modifier.padding(horizontal = 2.dp).width(4.dp).height((66 * h).dp).background(if (i % 3 == 1) Ink.Orange else Ink.White))
+            }
+        }
+        Txt("B.T.S.U.", Type.wide(7.5.sp, Ink.G2), Modifier.align(Alignment.TopStart).padding(start = 26.dp, top = 10.dp))
+        Txt("TX // VOICE", Type.mono(8.sp, Ink.G3), Modifier.align(Alignment.BottomEnd).padding(end = 26.dp, bottom = 9.dp))
+    }
+}
+
+/** DIAMOND's clipped status log. */
+@Composable
+private fun CoreLog(lines: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().background(Color(0xEB101318)).border(1.dp, Ink.Line)
+            .drawBehind { drawRect(Ink.Orange, size = Size(3.dp.toPx(), size.height)) }
+            .padding(start = 14.dp, end = 12.dp, top = 9.dp, bottom = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        lines.forEach { (text, color) -> Txt(text, Type.mono(10.sp, color), maxLines = 2) }
     }
 }

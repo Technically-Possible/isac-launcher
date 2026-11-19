@@ -40,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -156,25 +157,33 @@ fun InventoryPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Bottom) {
             Txt(Lex.inventory, Type.title(28.sp))
             Spacer(Modifier.weight(1f))
-            Label("${apps.count { it.key !in junk }} ITEMS", color = Ink.G2, size = 11f)
+            if (Ink.diamond) Txt("${apps.count { it.key !in junk }} ASSETS", Type.mono(10.5.sp, Ink.G2))
+            else Label("${apps.count { it.key !in junk }} ITEMS", color = Ink.G2, size = 11f)
         }
         Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             filters.forEach { f -> Chip(if (f == Filter.JUNK) Lex.junk else f.label, f == filter) { filter = f } }
         }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            val d = Ink.diamond
             Row(
-                Modifier.weight(1f).height(40.dp).background(Ink.Glass).border(1.dp, Ink.Orange.copy(alpha = 0.45f)).padding(horizontal = 10.dp),
+                Modifier.weight(1f).height(if (d) 44.dp else 40.dp)
+                    .background(if (d) Color(0xFF101318) else Ink.Glass)
+                    .border(1.dp, Ink.Orange.copy(alpha = if (d) 0.7f else 0.45f)).padding(horizontal = if (d) 12.dp else 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Glyph(IsacIcons.Search, 16.dp, Ink.Orange)
+                // DIAMOND searches from a terminal-style prompt.
+                if (d) Txt(">", Type.mono(13.sp, Ink.Orange, FontWeight.Bold)) else Glyph(IsacIcons.Search, 16.dp, Ink.Orange)
                 Gap(8.dp)
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Txt("Search apps, contacts, settings, sums", Type.body(14.sp, Ink.G3), maxLines = 1)
+                    if (query.isEmpty()) {
+                        if (d) Txt("QUERY APPS, CONTACTS, SETTINGS", Type.mono(11.sp, Ink.G3), maxLines = 1)
+                        else Txt("Search apps, contacts, settings, sums", Type.body(14.sp, Ink.G3), maxLines = 1)
+                    }
                     BasicTextField(
                         value = query,
                         onValueChange = { query = it },
                         singleLine = true,
-                        textStyle = Type.body(14.sp),
+                        textStyle = if (d) Type.mono(12.sp) else Type.body(14.sp),
                         cursorBrush = SolidColor(Ink.Orange),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                         keyboardActions = KeyboardActions(onGo = {
@@ -192,16 +201,22 @@ fun InventoryPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
             }
             Gap(8.dp)
             Box(
-                Modifier.height(40.dp).border(1.dp, Ink.Line).tap({ mostUsed = !mostUsed }).padding(horizontal = 10.dp),
+                Modifier.height(if (Ink.diamond) 44.dp else 40.dp).border(1.dp, if (Ink.diamond) Ink.White.copy(alpha = 0.24f) else Ink.Line)
+                    .tap({ mostUsed = !mostUsed }).padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (Ink.diamond) Column {
+                    Txt("SORT", Type.mono(8.5.sp, Ink.G2))
+                    VGap(2.dp)
+                    Label(if (mostUsed && usage.hasAccess) "MOST USED" else "A–Z", color = Ink.White, size = 10f)
+                } else Row(verticalAlignment = Alignment.CenterVertically) {
                     Label("SORT", color = Ink.G2, size = 9.5f)
                     Gap(6.dp)
                     Label(if (mostUsed && usage.hasAccess) "MOST USED" else "A–Z", color = Ink.White, size = 9.5f)
                 }
             }
         }
+        if (Ink.diamond && q.isEmpty() && filter == Filter.ALL) RarityLegend()
         if (!usage.hasAccess && s.rarityByUsage && filter == Filter.ALL && q.isEmpty()) {
             VGap(10.dp)
             Panel(Modifier.fillMaxWidth().tap({
@@ -238,12 +253,12 @@ fun InventoryPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
                 }
             }
             if (q.isEmpty() && filter == Filter.ALL && suggestions.isNotEmpty()) {
-                wide("sug-head") { GridHeader("SUGGESTED NOW") }
+                wide("sug-head") { GridHeader(if (Ink.diamond) "SUGGESTED // NOW" else "SUGGESTED NOW") }
                 items(suggestions, key = { "sug:" + it.key }) { e ->
                     InventoryItem(e, rarity[e.key] ?: Rarity.STANDARD, s.iconStyle, isNew = false,
                         onClick = { vm.launch(e) }, onLongClick = { vm.overlay = Overlay.Details(e) }, badge = Badges.countFor(badges, e))
                 }
-                wide("all-head") { GridHeader("ALL ITEMS") }
+                wide("all-head") { GridHeader(if (Ink.diamond) "ALL ASSETS" else "ALL ITEMS") }
             }
             hits.forEach { h ->
                 wide("hit:${h.kind}:${h.title}") {
@@ -278,7 +293,7 @@ private fun LazyGridScope.wide(key: String, content: @Composable () -> Unit) =
 @Composable
 private fun GridHeader(text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(6.dp).background(Ink.Orange))
+        Box(Modifier.size(if (Ink.diamond) 7.dp else 6.dp).background(Ink.Orange, if (Ink.diamond) app.isac.launcher.ui.components.RhombusShape else androidx.compose.ui.graphics.RectangleShape))
         Gap(8.dp)
         Label(text, size = 10.5f)
         Gap(10.dp)
@@ -312,8 +327,9 @@ fun InventoryItem(
         Tile(rarity, Modifier.fillMaxWidth().height(64.dp), onClick = onClick, onLongClick = onLongClick) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { AppGlyph(e, 30.dp, style) }
             if (isNew) {
-                Box(Modifier.align(Alignment.TopStart).padding(3.dp).background(Ink.Orange).padding(horizontal = 4.dp, vertical = 1.dp)) {
-                    Label("NEW", color = Ink.OnOrange, size = 8f)
+                // DIAMOND tags new items in ice white, flush to the corner.
+                Box(Modifier.align(Alignment.TopStart).padding(if (Ink.diamond) 0.dp else 3.dp).background(if (Ink.diamond) Ink.White else Ink.Orange).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                    if (Ink.diamond) Txt("NEW", Type.mono(8.sp, Ink.Ground, FontWeight.Bold)) else Label("NEW", color = Ink.OnOrange, size = 8f)
                 }
             }
             if (e.isWork) {
@@ -322,7 +338,22 @@ fun InventoryItem(
             CountBadge(badge, Modifier.align(Alignment.TopEnd).padding(3.dp))
         }
         VGap(5.dp)
-        Label(e.label, color = Ink.G2, size = 9.5f)
+        if (Ink.diamond) Txt(e.label.uppercase(), Type.mono(9.sp, Ink.White), maxLines = 1)
+        else Label(e.label, color = Ink.G2, size = 9.5f)
+    }
+}
+
+/** DIAMOND's rarity tiers, as a key above the grid. */
+@Composable
+private fun RarityLegend() {
+    Row(Modifier.padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        listOf(Rarity.EXOTIC, Rarity.HIGH_END, Rarity.SUPERIOR, Rarity.STANDARD, Rarity.WORN).forEach { r ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(Ink.rarity(r), app.isac.launcher.ui.components.RhombusShape))
+                Gap(5.dp)
+                Txt(Lex.rarity(r), Type.mono(9.sp, Ink.G2))
+            }
+        }
     }
 }
 

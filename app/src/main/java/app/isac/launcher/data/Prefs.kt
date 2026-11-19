@@ -58,6 +58,10 @@ data class Settings(
     val faction: Faction = Faction.DIVISION,
     /** False until the allegiance picker has been answered once. */
     val factionChosen: Boolean = false,
+    /** DIAMOND shows photos as black-and-white optic feeds. */
+    val opticMono: Boolean = true,
+    /** Look for new releases on GitHub, at most twice a day. */
+    val checkUpdates: Boolean = true,
 )
 
 /** Number of loadout slots: 3 weapons followed by 6 gear. */
@@ -96,6 +100,8 @@ class Prefs(context: Context) {
             putString("sky", next.sky.name)
             putString("faction", next.faction.name)
             putBoolean("factionChosen", next.factionChosen)
+            putBoolean("opticMono", next.opticMono)
+            putBoolean("checkUpdates", next.checkUpdates)
         }
         _settings.value = next
     }
@@ -127,6 +133,8 @@ class Prefs(context: Context) {
             sky = enumOr(sp.getString("sky", null), d.sky),
             faction = enumOr<Faction>(sp.getString("faction", null), d.faction).takeIf { it.ready } ?: Faction.DIVISION,
             factionChosen = sp.getBoolean("factionChosen", d.factionChosen),
+            opticMono = sp.getBoolean("opticMono", d.opticMono),
+            checkUpdates = sp.getBoolean("checkUpdates", d.checkUpdates),
         )
     }
 

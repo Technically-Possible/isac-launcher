@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.onEach
 import app.isac.launcher.data.Sensors
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.awaitClose
 import java.time.LocalDate
 
 sealed interface Overlay {
@@ -248,6 +249,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 Ink.setSkin(it.faction.skin())
             }
         }
+        checkForUpdate()
         // Load every icon in the background so lists don't fill in while scrolling.
         viewModelScope.launch {
             combine(apps, settings) { list, s -> list to IconSource.of(s.iconStyle, s.iconPack) }.collect { (list, src) -> g.icons.prewarm(list, src) }
@@ -487,6 +489,48 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         showToast(line,
             banner = Banner(if (Ink.diamond) "TIER UP" else "LEVEL UP", Lex.level(level), if (unlocks.isEmpty()) "Exploration rank increased" else "Unlocked: ${unlocks.joinToString(", ")}"))
         if (settings.value.isacVoice) g.isac.speak(line)
+    }
+
+    /** Whether there's a working internet connection. DIAMOND shows it as LINK_SECURE or LINK_LOST. */
+    val online: StateFlow<Boolean> = kotlinx.coroutines.flow.callbackFlow {
+        val cm = getApplication<Application>().getSystemService(android.net.ConnectivityManager::class.java)
+        fun now() = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+            ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) { trySend(now()) }
+            override fun onLost(network: android.net.Network) { trySend(now()) }
+            override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) { trySend(now()) }
+        }
+        runCatching { cm.registerDefaultNetworkCallback(cb) }
+        trySend(now())
+        awaitClose { runCatching { cm.unregisterNetworkCallback(cb) } }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** A newer release on GitHub, once a check has found one. */
+    var update by mutableStateOf<app.isac.launcher.data.Release?>(null)
+    var updateChecked by mutableStateOf(false)
+
+    /** Looks for a newer release. Automatic checks run at most every 12 hours; [manual] always checks. */
+    fun checkForUpdate(manual: Boolean = false) {
+        if (!manual && !settings.value.checkUpdates) return
+        val sp = getApplication<Application>().getSharedPreferences("updates", android.content.Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        if (!manual && now - sp.getLong("lastCheck", 0L) < 12 * 3_600_000L) return
+        viewModelScope.launch {
+            val r = app.isac.launcher.data.Updates.latest()
+            updateChecked = true
+            if (r == null) { if (manual) showToast("Couldn't reach GitHub. Try again later."); return@launch }
+            sp.edit().putLong("lastCheck", now).apply()
+            val mine = app.isac.launcher.data.Updates.installed(getApplication())
+            if (app.isac.launcher.data.Updates.newer(r.version, mine)) {
+                update = r
+                showToast("Version ${r.version} is available. Open Settings, System, Updates to install it.",
+                    banner = Banner("UPDATE AVAILABLE", "VERSION ${r.version}", "Settings › System › Updates"))
+            } else {
+                update = null
+                if (manual) showToast("You're on the latest version, $mine.")
+            }
+        }
     }
 
     private fun homeLine() = if (Ink.diamond) "Base of Operations. Link secure." else "Welcome back to the Base of Operations."

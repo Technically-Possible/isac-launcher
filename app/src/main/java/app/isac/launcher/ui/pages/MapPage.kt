@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -105,9 +106,9 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
         else Box(Modifier.fillMaxSize().background(Color(0xFF1A2129)))
 
         // Stats across the top of the map.
-        Panel(Modifier.align(Alignment.TopCenter).padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(), padding = 10.dp) {
+        Panel(Modifier.align(Alignment.TopCenter).padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(), padding = 10.dp, hero = Ink.diamond) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Label("EXPLORATION")
+                Label(if (Ink.diamond) "SECTOR SCAN" else "EXPLORATION")
                 Spacer(Modifier.weight(1f))
                 Label(Lex.level(level), color = Ink.White, size = 11f)
             }
@@ -117,8 +118,8 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
             }
             VGap(8.dp)
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Stat("%.1f KM²".format(Locale.UK, ex.areaKm2()), "UNCOVERED")
-                Stat("%.0f KM".format(Locale.UK, km), "TRAVELLED")
+                Stat("%.1f KM²".format(Locale.UK, ex.areaKm2()), if (Ink.diamond) "MAPPED" else "UNCOVERED")
+                Stat("%.0f KM".format(Locale.UK, km), if (Ink.diamond) "TRAVEL" else "TRAVELLED")
                 Stat("${cities.size}", "CITIES")
                 Stat("${found.size}/${places.count { it.landmark }}", "CACHES")
                 Stat("${ex.xp}", "XP")
@@ -204,10 +205,13 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
             Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            MapButton(if (expedition) "END EXPEDITION" else "START EXPEDITION", expedition, Modifier.weight(1f)) { toggleExpedition() }
+            MapButton(
+                when { expedition -> "END EXPEDITION"; Ink.diamond -> "INITIATE EXPEDITION"; else -> "START EXPEDITION" },
+                expedition, Modifier.weight(1f), primary = true,
+            ) { toggleExpedition() }
             MapButton("ACCESS", showAccess) { showAccess = !showAccess }
             MapButton("CITIES", showCities) { showCities = !showCities; tapped = null }
-            MapButton("◎", false) { recenter++ }
+            if (Ink.diamond) RecentreRhombus { recenter++ } else MapButton("◎", false) { recenter++ }
         }
     }
 }
@@ -215,13 +219,52 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
 @Composable
 private fun Stat(value: String, label: String) {
     Column {
-        Txt(value, Type.title(16.sp))
-        Label(label, color = Ink.G2, size = 8.5f)
+        if (Ink.diamond) {
+            Txt(value, Type.mono(13.sp, Ink.White, androidx.compose.ui.text.font.FontWeight.Bold))
+            Txt(label, Type.mono(8.5.sp, Ink.G2))
+        } else {
+            Txt(value, Type.title(16.sp))
+            Label(label, color = Ink.G2, size = 8.5f)
+        }
     }
 }
 
+/** DIAMOND's centre-on-me button: a crimson rhombus with a crosshair. */
 @Composable
-private fun MapButton(text: String, on: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun RecentreRhombus(onClick: () -> Unit) {
+    Box(
+        Modifier.size(44.dp).background(Ink.GlassDeep).border(1.dp, Ink.Orange.copy(alpha = 0.7f)).tap(onClick)
+            .drawBehind {
+                val c = center
+                drawPath(app.isac.launcher.ui.components.rhombusPath(c, 8.dp.toPx()), Ink.Orange, style = androidx.compose.ui.graphics.drawscope.Stroke(1.6.dp.toPx()))
+                val l = 4.dp.toPx(); val g = 10.dp.toPx()
+                drawLine(Ink.White, androidx.compose.ui.geometry.Offset(c.x, c.y - g - l), androidx.compose.ui.geometry.Offset(c.x, c.y - g), 1.4.dp.toPx())
+                drawLine(Ink.White, androidx.compose.ui.geometry.Offset(c.x, c.y + g), androidx.compose.ui.geometry.Offset(c.x, c.y + g + l), 1.4.dp.toPx())
+                drawLine(Ink.White, androidx.compose.ui.geometry.Offset(c.x - g - l, c.y), androidx.compose.ui.geometry.Offset(c.x - g, c.y), 1.4.dp.toPx())
+                drawLine(Ink.White, androidx.compose.ui.geometry.Offset(c.x + g, c.y), androidx.compose.ui.geometry.Offset(c.x + g + l, c.y), 1.4.dp.toPx())
+            },
+    )
+}
+
+@Composable
+private fun MapButton(text: String, on: Boolean, modifier: Modifier = Modifier, primary: Boolean = false, onClick: () -> Unit) {
+    if (Ink.diamond) {
+        // DIAMOND: the main action is an ice-white plate with cut corners; the rest are hairline outlines.
+        val shape = if (primary) app.isac.launcher.ui.components.ChamferShape(10.dp) else androidx.compose.ui.graphics.RectangleShape
+        Box(
+            modifier
+                .height(44.dp)
+                .background(
+                    when { primary && on -> Ink.Orange; primary -> Ink.White; on -> Ink.Orange.copy(alpha = 0.2f); else -> Ink.GlassDeep },
+                    shape,
+                )
+                .then(if (primary) Modifier else Modifier.border(1.dp, if (on) Ink.Orange else Ink.White.copy(alpha = 0.3f)))
+                .tap(onClick)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) { Label(text, color = if (primary) Ink.Ground else Ink.White, size = 11f) }
+        return
+    }
     Box(
         modifier
             .height(44.dp)
@@ -293,7 +336,12 @@ private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, showAccess: Boo
     val accentHex = vm.settings.collectAsStateWithLifecycle().value.accent.hex
     LaunchedEffect(map, diamond, accentHex) {
         val m = map ?: return@LaunchedEffect
-        m.setStyle(Style.Builder().fromJson(mapStyleFor(diamond, accentHex))) { s -> style = s }
+        val builder = Style.Builder().fromJson(mapStyleFor(diamond, accentHex))
+        if (diamond) {
+            val dm = context.resources.displayMetrics
+            diamondMarkers(dm.density, dm.densityDpi).forEach { (id, bmp) -> builder.withImage(id, bmp) }
+        }
+        m.setStyle(builder) { s -> style = s }
     }
     // Fog of war, redrawn whenever new ground is uncovered.
     LaunchedEffect(style, version) {

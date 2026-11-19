@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -137,18 +138,42 @@ fun ItemDetails(vm: LauncherViewModel, entry: AppEntry) {
                 .background(Ink.GlassDeep),
         ) {
             // header
+            val d = Ink.diamond
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .background(Brush.linearGradient(listOf(rc.copy(alpha = 0.5f), Color(0xFF121314)), start = Offset.Zero, end = Offset(900f, 700f)))
-                    .padding(top = 3.dp)
-                    .background(Color.Transparent),
+                    .then(
+                        if (d) Modifier
+                            // DIAMOND: a dark tint of the tier colour, a diagonal hatch, and a solid tier line beneath.
+                            .background(Color(0xFF0F1216))
+                            .background(rc.copy(alpha = 0.16f))
+                            .drawBehind {
+                                val step = 9.dp.toPx()
+                                var x = -size.height
+                                while (x < size.width) {
+                                    drawLine(rc.copy(alpha = 0.14f), Offset(x, size.height), Offset(x + size.height, 0f), 1f)
+                                    x += step
+                                }
+                                drawRect(rc, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))
+                            }
+                        else Modifier
+                            .background(Brush.linearGradient(listOf(rc.copy(alpha = 0.5f), Color(0xFF121314)), start = Offset.Zero, end = Offset(900f, 700f)))
+                            .padding(top = 3.dp)
+                            .background(Color.Transparent),
+                    ),
             ) {
-                Box(Modifier.fillMaxWidth().height(3.dp).background(rc).align(Alignment.TopStart))
+                if (!d) Box(Modifier.fillMaxWidth().height(3.dp).background(rc).align(Alignment.TopStart))
                 Column(Modifier.padding(16.dp)) {
-                    Row {
-                        Label(Lex.rarity(r), color = rc, size = 11f)
-                        if (entry.category.label.isNotEmpty()) Label("  ·  ${entry.category.label}", color = Ink.G2, size = 11f)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (d) {
+                            Box(Modifier.background(rc).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                Txt(Lex.rarity(r), Type.mono(10.sp, Ink.Ground, FontWeight.Bold))
+                            }
+                            if (entry.category.label.isNotEmpty()) { Gap(8.dp); Txt(entry.category.label, Type.mono(10.sp, Ink.G2)) }
+                        } else {
+                            Label(Lex.rarity(r), color = rc, size = 11f)
+                            if (entry.category.label.isNotEmpty()) Label("  ·  ${entry.category.label}", color = Ink.G2, size = 11f)
+                        }
                     }
                     VGap(6.dp)
                     Txt(entry.label.uppercase(), Type.title(28.sp), maxLines = 2)
@@ -157,8 +182,13 @@ fun ItemDetails(vm: LauncherViewModel, entry: AppEntry) {
                         Txt(u?.foreground7d?.takeIf { it > 0 }?.let(::duration) ?: "—", Type.big(36.sp))
                         Gap(10.dp)
                         Column(Modifier.padding(bottom = 4.dp)) {
-                            Label("SCREEN TIME", color = Ink.G2, size = 9f)
-                            Label("LAST 7 DAYS", color = Ink.G2, size = 9f)
+                            if (Ink.diamond) {
+                                Txt("SCREEN TIME", Type.mono(9.sp, Ink.G2))
+                                Txt("LAST 7 DAYS", Type.mono(9.sp, Ink.G2))
+                            } else {
+                                Label("SCREEN TIME", color = Ink.G2, size = 9f)
+                                Label("LAST 7 DAYS", color = Ink.G2, size = 9f)
+                            }
                         }
                     }
                 }
@@ -493,6 +523,13 @@ fun LoadingScreen(vm: LauncherViewModel, arrival: Boolean = false, onDone: () ->
         Row(Modifier.padding(start = 28.dp, top = 64.dp), verticalAlignment = Alignment.CenterVertically) {
             Emblem(22.dp); Gap(10.dp); Label(Lex.brand, color = Ink.White, size = 13f)
         }
+        if (Ink.diamond) {
+            Txt("BT-NET // HANDSHAKE", Type.mono(9.5.sp, Ink.Cobalt), Modifier.align(Alignment.TopEnd).padding(end = 28.dp, top = 68.dp))
+            Txt(
+                "DIGITAL INTEGRATED ARTIFICIAL MACHINE OPERATIONS NETWORK DYNAMIC", Type.mono(7.5.sp, Ink.G2),
+                Modifier.align(Alignment.BottomCenter).padding(start = 22.dp, end = 22.dp, bottom = 26.dp), maxLines = 1,
+            )
+        }
         Column(Modifier.align(Alignment.CenterStart).padding(horizontal = 28.dp)) {
             Label(if (arrival) (if (Ink.diamond) "LINK RESTORED" else "ARRIVED") else Lex.destination, color = if (arrival) Ink.Orange else Ink.G2, size = 11f)
             VGap(10.dp)
@@ -502,7 +539,7 @@ fun LoadingScreen(vm: LauncherViewModel, arrival: Boolean = false, onDone: () ->
             VGap(12.dp)
             val agent = "${Lex.agent} ${s.callsign.lowercase().replaceFirstChar { it.uppercase() }}"
             val home = if (Ink.diamond) "Perimeter secure. Welcome back, $agent." else "Secure. Welcome back, $agent."
-            Txt(if (arrival) home else "$agent · ${Lex.levelWord} $level", Type.body(15.sp, Ink.G2))
+            Txt(if (arrival) home else "$agent · ${Lex.levelWord} ${if (Ink.diamond) "%02d".format(level) else level}", Type.body(15.sp, Ink.G2))
         }
         Row(Modifier.align(Alignment.BottomStart).padding(start = 28.dp, end = 28.dp, bottom = 120.dp)) {
             Box(Modifier.width(3.dp).height(58.dp).background(Ink.Orange))

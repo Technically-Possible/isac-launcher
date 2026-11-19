@@ -162,6 +162,24 @@ object Type {
         )
     }
 
+    /** The wide geometric face under DIAMOND (Michroma, for callsigns and headers); a normal title under SHD. */
+    fun wide(size: TextUnit, color: Color = Ink.White): TextStyle = if (Ink.diamond) {
+        TextStyle(
+            fontFamily = Michroma, fontWeight = FontWeight.Normal, fontSize = size, letterSpacing = 0.1.em,
+            color = color, lineHeight = size * 1.15f, platformStyle = PlatformTextStyle(includeFontPadding = false),
+        )
+    } else title(size, color)
+
+    /** The big day of the month: Michroma under DIAMOND, light Titillium under SHD. */
+    fun day(size: TextUnit, color: Color = Ink.White): TextStyle = if (Ink.diamond) {
+        TextStyle(
+            fontFamily = Michroma, fontWeight = FontWeight.Normal, fontSize = size * 0.74f, letterSpacing = (-0.02).em,
+            color = color, lineHeight = size * 0.74f,
+            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+        )
+    } else big(size, color)
+
     /** Telemetry text: monospace under DIAMOND, the normal label face under SHD. */
     fun mono(size: TextUnit = 11.sp, color: Color = Ink.White, weight: FontWeight = FontWeight.Medium) = TextStyle(
         fontFamily = if (Ink.diamond) JetBrainsMono else Titillium, fontWeight = weight, fontSize = size,

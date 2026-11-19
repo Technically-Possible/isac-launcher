@@ -31,6 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -77,7 +81,8 @@ private val zone get() = ZoneId.systemDefault()
 fun timeText(t: Long, use24h: Boolean): Pair<String, String> {
     val z = Instant.ofEpochMilli(t).atZone(zone)
     return if (use24h) z.format(DateTimeFormatter.ofPattern("HH:mm")) to ""
-    else z.format(DateTimeFormatter.ofPattern("h:mm")) to z.format(DateTimeFormatter.ofPattern("a", Locale.UK)).uppercase()
+    // DIAMOND pads the hour, like a terminal readout: 03:09.
+    else z.format(DateTimeFormatter.ofPattern(if (Ink.diamond) "hh:mm" else "h:mm")) to z.format(DateTimeFormatter.ofPattern("a", Locale.UK)).uppercase()
 }
 
 fun shortTime(t: Long, use24h: Boolean): String {
@@ -90,6 +95,35 @@ fun AgentStrip(vm: LauncherViewModel, modifier: Modifier = Modifier) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val b by vm.battery.collectAsStateWithLifecycle()
     val level by vm.level.collectAsStateWithLifecycle()
+    if (Ink.diamond) {
+        // DIAMOND: faction tag over the callsign on the left, link status over the power cells on the right.
+        val online by vm.online.collectAsStateWithLifecycle()
+        val stealth by vm.stealth.collectAsStateWithLifecycle()
+        Row(modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Emblem(28.dp)
+            Gap(10.dp)
+            Column {
+                Txt(if (stealth) "B.T.S.U. // STEALTH" else "B.T.S.U. // NET-SYNC", Type.wide(8.5.sp, if (stealth) Ink.Orange else Ink.G2))
+                VGap(4.dp)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Txt(s.callsign.uppercase(), Type.wide(14.sp), maxLines = 1)
+                    Gap(8.dp)
+                    Txt(Lex.level(level), Type.mono(10.5.sp, Ink.G2))
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Txt(if (online) "LINK_SECURE" else "LINK_LOST", Type.mono(10.sp, if (online) Ink.Cobalt else Ink.Amber))
+                VGap(5.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ArmorBar(b.percent, b.charging, Modifier.width(78.dp), segments = 10, height = 8.dp)
+                    Gap(6.dp)
+                    Txt("${b.percent}%", Type.mono(11.sp, if (b.critical) Ink.Crit else Ink.White, FontWeight.Bold))
+                }
+            }
+        }
+        return
+    }
     Row(modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Emblem(18.dp)
         Gap(9.dp)
@@ -149,6 +183,28 @@ private fun NowPlayingCard(vm: LauncherViewModel) {
 private fun DailyChips(vm: LauncherViewModel) {
     val daily by vm.directives.collectAsStateWithLifecycle()
     if (daily.isEmpty()) return
+    if (Ink.diamond) {
+        // DIAMOND: finished objectives turn white; open ones show crimson progress.
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            daily.forEach { d ->
+                Column(
+                    Modifier.weight(1f).border(1.dp, if (d.done) Ink.White.copy(alpha = 0.28f) else Ink.Line)
+                        .tap({ vm.showToast(if (d.done) "Objective complete: ${d.text}." else "Objective: ${d.text}. Worth 50 XP.") })
+                        .padding(horizontal = 7.dp, vertical = 6.dp),
+                ) {
+                    Row {
+                        Txt(d.kind.short, Type.mono(9.5.sp, if (d.done) Ink.White else Ink.G2), Modifier.weight(1f), maxLines = 1)
+                        Txt("${d.progress}/${d.target}", Type.mono(9.5.sp, if (d.done) Ink.White else Ink.Orange))
+                    }
+                    VGap(6.dp)
+                    Box(Modifier.fillMaxWidth().height(2.dp).background(Ink.Line)) {
+                        Box(Modifier.fillMaxWidth((d.progress.toFloat() / d.target).coerceIn(0f, 1f)).height(2.dp).background(if (d.done) Ink.White else Ink.Orange))
+                    }
+                }
+            }
+        }
+        return
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         daily.forEach { d ->
             Column(
@@ -231,6 +287,10 @@ private fun CalendarPanel(vm: LauncherViewModel) {
     val days by vm.eventDays.collectAsStateWithLifecycle()
     val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
     val calPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.refreshCalendar() }
+    if (Ink.diamond) {
+        DiamondCalendar(vm, now, today, days) { if (!vm.g.calendar.hasAccess()) calPerm.launch(Manifest.permission.READ_CALENDAR) }
+        return
+    }
     Panel(Modifier.fillMaxWidth().tap({ if (!vm.g.calendar.hasAccess()) calPerm.launch(Manifest.permission.READ_CALENDAR) })) {
         Row(Modifier.height(IntrinsicSize.Min)) {
             Column(Modifier.width(118.dp).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
@@ -263,8 +323,60 @@ private fun CalendarPanel(vm: LauncherViewModel) {
     }
 }
 
+/**
+ * DIAMOND's calendar: the date in Michroma with the weekday and month beneath, the month grid
+ * beside it, and a telemetry row along the bottom (week number, sunset, the time).
+ */
+@Composable
+private fun DiamondCalendar(vm: LauncherViewModel, now: Long, today: LocalDate, days: Set<Int>, onTap: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    Panel(Modifier.fillMaxWidth().tap(onTap), padding = 14.dp, hero = true) {
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            Column(Modifier.width(128.dp).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                Txt(today.dayOfMonth.toString(), Type.day(82.sp), Modifier.padding(top = 4.dp), maxLines = 1)
+                Column {
+                    Txt(today.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.UK).uppercase(), Type.label(14.sp, Ink.White))
+                    VGap(3.dp)
+                    Txt(today.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.UK).uppercase(), Type.label(14.sp, Ink.Orange))
+                }
+            }
+            Gap(10.dp)
+            MonthGrid(today, days, Modifier.weight(1f))
+        }
+        VGap(10.dp)
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Ink.Line))
+        VGap(10.dp)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                val week = today.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+                Txt("WK %02d // %d".format(week, today.year), Type.mono(10.sp, Ink.G2))
+                val fix = remember(today) { vm.g.prefs.lastFix }
+                val sun = remember(today, fix) { fix?.let { app.isac.launcher.data.Sun.times(today, it.first, it.second) } }
+                if (sun != null) {
+                    VGap(3.dp)
+                    Txt("SUNSET ${shortTime(sun.second, s.use24h).uppercase()}", Type.mono(10.sp, Ink.G2))
+                }
+                if (!vm.g.calendar.hasAccess()) {
+                    VGap(3.dp)
+                    Txt("TAP FOR YOUR EVENTS", Type.mono(10.sp, Ink.G3))
+                }
+            }
+            val (t, ampm) = timeText(now, s.use24h)
+            Txt(t, Type.big(54.sp))
+            if (ampm.isNotEmpty()) {
+                Gap(4.dp)
+                Txt(ampm, Type.mono(13.sp, Ink.Orange, FontWeight.Bold), Modifier.padding(bottom = 30.dp))
+            }
+        }
+    }
+}
+
 @Composable
 private fun MonthGrid(today: LocalDate, eventDays: Set<Int>, modifier: Modifier) {
+    if (Ink.diamond) {
+        DiamondMonthGrid(today, eventDays, modifier)
+        return
+    }
     val first = today.withDayOfMonth(1)
     val lead = first.dayOfWeek.value % 7 // Sunday first, like the user's current widget
     val count = today.lengthOfMonth()
@@ -303,6 +415,50 @@ private fun MonthGrid(today: LocalDate, eventDays: Set<Int>, modifier: Modifier)
     }
 }
 
+/** DIAMOND's month: monospace days, today as a white rhombus in a crimson ring, events as cobalt pips. */
+@Composable
+private fun DiamondMonthGrid(today: LocalDate, eventDays: Set<Int>, modifier: Modifier) {
+    val first = today.withDayOfMonth(1)
+    val lead = first.dayOfWeek.value % 7
+    val count = today.lengthOfMonth()
+    Column(modifier) {
+        Row(Modifier.fillMaxWidth()) {
+            listOf("S", "M", "T", "W", "T", "F", "S").forEach {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Txt(it, Type.mono(10.sp, Ink.G2)) }
+            }
+        }
+        VGap(4.dp)
+        val rows = (lead + count + 6) / 7
+        repeat(rows) { r ->
+            Row(Modifier.fillMaxWidth()) {
+                repeat(7) { c ->
+                    val day = r * 7 + c - lead + 1
+                    Box(Modifier.weight(1f).height(22.dp), contentAlignment = Alignment.Center) {
+                        if (day in 1..count) {
+                            val isToday = day == today.dayOfMonth
+                            if (isToday) {
+                                Box(Modifier.size(20.dp).border(1.5.dp, Ink.Orange, app.isac.launcher.ui.components.RhombusShape))
+                                Box(Modifier.size(15.dp).background(Ink.White, app.isac.launcher.ui.components.RhombusShape))
+                            }
+                            Txt(
+                                day.toString(),
+                                Type.mono(
+                                    if (isToday) 10.5.sp else 11.5.sp,
+                                    when { isToday -> Ink.Ground; day < today.dayOfMonth -> Ink.G3; else -> Ink.White },
+                                    if (isToday || day > today.dayOfMonth) FontWeight.Bold else FontWeight.Normal,
+                                ),
+                            )
+                            if (day in eventDays && !isToday) {
+                                Box(Modifier.align(Alignment.BottomCenter).size(5.dp).background(Ink.Cobalt, app.isac.launcher.ui.components.RhombusShape))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Directives(vm: LauncherViewModel) {
     val alarm by vm.nextAlarm.collectAsStateWithLifecycle()
@@ -311,7 +467,19 @@ private fun Directives(vm: LauncherViewModel) {
     val daily by vm.directives.collectAsStateWithLifecycle()
     if (alarm == null && event == null && daily.isEmpty()) return
     Panel(Modifier.fillMaxWidth(), padding = 10.dp) {
-        Label(Lex.directives)
+        if (Ink.diamond) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(Ink.Orange, app.isac.launcher.ui.components.RhombusShape))
+                Gap(8.dp)
+                Label(Lex.directives)
+                Gap(8.dp)
+                Box(Modifier.weight(1f).height(1.dp).background(Ink.Line))
+                if (daily.isNotEmpty()) {
+                    Gap(8.dp)
+                    Txt("${daily.count { it.done }}/${daily.size} COMPLETE", Type.mono(10.sp, Ink.G2))
+                }
+            }
+        } else Label(Lex.directives)
         alarm?.let { a ->
             VGap(6.dp)
             DirectiveLine("Next alarm ${shortTime(a, s.use24h)}", dayWord(a), true)
@@ -355,8 +523,9 @@ private fun PhotoFrame(vm: LauncherViewModel, frame: Int, modifier: Modifier) {
     val slot = if (frame == 0) WidgetSlot.PHOTO1 else WidgetSlot.PHOTO2
     val widgetId = ids[slot] ?: -1
     if (widgetId != -1) {
-        Box(modifier.border(1.dp, Ink.Orange.copy(alpha = 0.55f)).padding(1.dp)) {
-            HostedWidget(vm, slot, widgetId, Modifier.fillMaxSize())
+        Box(modifier.border(1.dp, if (Ink.diamond) Ink.White.copy(alpha = 0.16f) else Ink.Orange.copy(alpha = 0.55f)).padding(1.dp)) {
+            HostedWidget(vm, slot, widgetId, Modifier.fillMaxSize().then(opticFilter(vm)))
+            if (Ink.diamond) OpticOverlay(frame, null)
         }
         return
     }
@@ -379,7 +548,7 @@ private fun FolderFrame(vm: LauncherViewModel, frame: Int, slot: WidgetSlot, mod
     }
     Box(
         modifier
-            .border(1.dp, Ink.Orange.copy(alpha = 0.55f))
+            .border(1.dp, if (Ink.diamond) Ink.White.copy(alpha = 0.16f) else Ink.Orange.copy(alpha = 0.55f))
             .background(Color(0xFF15171A))
             .tap(
                 onClick = { if (photo != null) vm.skipPhoto(frame) else vm.overlay = Overlay.WidgetPicker(slot) },
@@ -388,7 +557,7 @@ private fun FolderFrame(vm: LauncherViewModel, frame: Int, slot: WidgetSlot, mod
     ) {
         val b = bitmap
         if (b != null) {
-            Image(b, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Image(b, null, Modifier.fillMaxSize().then(opticFilter(vm)), contentScale = ContentScale.Crop)
         } else if (hasFolder) {
             Column(Modifier.align(Alignment.Center).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Glyph(IsacIcons.Photo, 26.dp, Ink.Orange)
@@ -413,6 +582,10 @@ private fun FolderFrame(vm: LauncherViewModel, frame: Int, slot: WidgetSlot, mod
                 }
             }
         }
+        if (Ink.diamond) {
+            OpticOverlay(frame, photo?.modified)
+            return@Box
+        }
         Row(
             Modifier
                 .align(Alignment.BottomStart)
@@ -429,6 +602,57 @@ private fun FolderFrame(vm: LauncherViewModel, frame: Int, slot: WidgetSlot, mod
                 val date = Instant.ofEpochMilli(photo.modified).atZone(zone).toLocalDate()
                 Label(date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.UK)), color = Ink.G2, size = 9f)
             }
+        }
+    }
+}
+
+/**
+ * DIAMOND renders photos as black-and-white optic feeds (switchable in Settings).
+ * Works on hosted widgets too on Android 12 and later.
+ */
+@Composable
+private fun opticFilter(vm: LauncherViewModel): Modifier {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    if (!Ink.diamond || !s.opticMono || android.os.Build.VERSION.SDK_INT < 31) return Modifier
+    return Modifier.graphicsLayer {
+        val m = android.graphics.ColorMatrix().apply { setSaturation(0f) }
+        val contrast = android.graphics.ColorMatrix(floatArrayOf(
+            1.15f, 0f, 0f, 0f, -14f,
+            0f, 1.15f, 0f, 0f, -14f,
+            0f, 0f, 1.15f, 0f, -14f,
+            0f, 0f, 0f, 1f, 0f,
+        ))
+        m.postConcat(contrast)
+        renderEffect = android.graphics.RenderEffect.createColorFilterEffect(android.graphics.ColorMatrixColorFilter(m)).asComposeRenderEffect()
+    }
+}
+
+/** DIAMOND's frame furniture: corner brackets, a crimson scan line and an OPTIC caption bar. */
+@Composable
+private fun BoxScope.OpticOverlay(frame: Int, modified: Long?) {
+    Box(Modifier.matchParentSize().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 30.dp).drawBehind {
+        val l = 12.dp.toPx()
+        val w = 2.dp.toPx()
+        val c = Ink.White
+        drawRect(c, Offset(0f, 0f), Size(l, w)); drawRect(c, Offset(0f, 0f), Size(w, l))
+        drawRect(c, Offset(size.width - l, 0f), Size(l, w)); drawRect(c, Offset(size.width - w, 0f), Size(w, l))
+        drawRect(c, Offset(0f, size.height - w), Size(l, w)); drawRect(c, Offset(0f, size.height - l), Size(w, l))
+        drawRect(c, Offset(size.width - l, size.height - w), Size(l, w)); drawRect(c, Offset(size.width - w, size.height - l), Size(w, l))
+    })
+    Box(Modifier.matchParentSize().drawBehind {
+        drawRect(Ink.Orange.copy(alpha = 0.55f), Offset(0f, size.height * 0.41f), Size(size.width, 1.dp.toPx()))
+    })
+    Row(
+        Modifier.align(Alignment.BottomStart).fillMaxWidth().height(24.dp).background(Color(0xE00B0D10)).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(6.dp).background(Ink.Orange, app.isac.launcher.ui.components.RhombusShape))
+        Gap(6.dp)
+        Txt("OPTIC 0${frame + 1}", Type.mono(9.5.sp, Ink.White))
+        Spacer(Modifier.weight(1f))
+        if (modified != null) {
+            val date = Instant.ofEpochMilli(modified).atZone(zone).toLocalDate()
+            Txt(date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.UK)).uppercase(), Type.mono(9.sp, Ink.G2))
         }
     }
 }
@@ -474,7 +698,13 @@ private fun WeatherPanel(vm: LauncherViewModel, modifier: Modifier) {
             // Packed towards the bottom so the pressure line always fits.
             Spacer(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Txt("${cur.tempC}°", Type.big(38.sp))
+                if (Ink.diamond) {
+                    // Michroma's degree sign reads like a letter o, so the sign comes from the label face.
+                    Row(verticalAlignment = Alignment.Top) {
+                        Txt("${cur.tempC}", Type.wide(28.sp))
+                        Txt("°", Type.title(22.sp))
+                    }
+                } else Txt("${cur.tempC}°", Type.big(38.sp))
                 Spacer(Modifier.weight(1f))
                 Glyph(IsacIcons.weather(cur.code, cur.isDay), 30.dp, Ink.White)
             }
@@ -503,7 +733,7 @@ private fun MoonPanel(vm: LauncherViewModel, modifier: Modifier) {
     val now by vm.now.collectAsStateWithLifecycle()
     val m = remember(now / 3_600_000) { Moon.at(now) }
     Panel(modifier, padding = 10.dp) {
-        Label("MOON")
+        Label(if (Ink.diamond) "LUNAR" else "MOON")
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -571,8 +801,9 @@ private fun StashTile(vm: LauncherViewModel, modifier: Modifier) {
             }
         }
         VGap(8.dp)
-        Txt(s.stashName.uppercase(), Type.title(13.sp), maxLines = 1)
-        Label("${entries.size} ITEMS", color = Ink.G2, size = 9f)
+        Txt(s.stashName.uppercase(), if (Ink.diamond) Type.wide(11.sp) else Type.title(13.sp), maxLines = 1)
+        if (Ink.diamond) Txt("%02d ITEMS".format(entries.size), Type.mono(9.5.sp, Ink.G2))
+        else Label("${entries.size} ITEMS", color = Ink.G2, size = 9f)
     }
     // Total unread across the stash, on the folder's corner.
     app.isac.launcher.ui.components.CountBadge(total, Modifier.align(Alignment.TopEnd).padding(5.dp))
@@ -605,7 +836,7 @@ internal fun WorkStatusSlot(vm: LauncherViewModel, modifier: Modifier = Modifier
             ) {
                 Glyph(IsacIcons.Plus, 16.dp, Ink.Orange)
                 Gap(8.dp)
-                Label("ADD YOUR STATUS WIDGET", color = Ink.White, size = 11f)
+                Label(if (Ink.diamond) "MOUNT STATUS WIDGET" else "ADD YOUR STATUS WIDGET", color = Ink.White, size = 11f)
             }
         } else {
             val info = remember(id) { vm.g.widgets.info(id) }

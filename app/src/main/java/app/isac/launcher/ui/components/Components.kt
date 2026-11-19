@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.isac.launcher.data.AppEntry
 import app.isac.launcher.data.AppIcon
@@ -103,17 +104,23 @@ fun Panel(
     modifier: Modifier = Modifier,
     padding: Dp = 12.dp,
     fill: Color = Ink.Glass,
+    hero: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (Ink.diamond && !hero) {
+        // DIAMOND: most panels are plain glass with a hairline edge. Only key panels get cuts and brackets.
+        Column(modifier.background(fill).border(1.dp, Ink.Line).padding(padding), content = content)
+        return
+    }
     if (Ink.diamond) {
-        // DIAMOND: chamfered glass, a hairline edge that follows the cuts, heavy brackets on the square corners.
-        val shape = ChamferShape(12.dp)
+        // A key panel: chamfered glass, a hairline edge that follows the cuts, heavy brackets on the square corners.
+        val shape = ChamferShape(14.dp)
         Column(
             modifier
                 .clip(shape)
                 .background(fill, shape)
                 .border(1.dp, Ink.White.copy(alpha = 0.16f), shape)
-                .drawBehind { cornerBrackets(Ink.Orange) }
+                .drawBehind { cornerBrackets(Ink.Orange, 16.dp.toPx(), 3.dp.toPx()) }
                 .padding(padding),
             content = content,
         )
@@ -159,9 +166,31 @@ fun Tile(
     selected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    /** DIAMOND: a key plate, with deeper cut corners and heavy brackets. */
+    hero: Boolean = false,
+    /** DIAMOND: cut the corners, like a weapon plate. */
+    cut: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val rc = Ink.rarity(rarity)
+    if (Ink.diamond) {
+        // DIAMOND: flat, factory-fresh plates with a rarity strip along the bottom.
+        val shape = when { hero -> ChamferShape(16.dp); cut -> ChamferShape(10.dp); else -> RectangleShape }
+        Box(
+            modifier
+                .clip(shape)
+                .background(if (hero) Brush.horizontalGradient(listOf(Color(0xFF181C22), Color(0xFF12151A))) else Brush.linearGradient(listOf(Color(0xFF13161B), Color(0xFF13161B))), shape)
+                .border(if (selected) 1.5.dp else 1.dp, if (selected) Ink.Orange else Ink.White.copy(alpha = if (hero) 0.22f else 0.14f), shape)
+                .drawBehind {
+                    val h = 3.dp.toPx()
+                    drawRect(rc, topLeft = Offset(0f, size.height - h), size = Size(size.width, h))
+                    if (hero) cornerBrackets(Ink.Orange, 16.dp.toPx(), 3.dp.toPx())
+                }
+                .tap(onClick, onLongClick),
+            content = content,
+        )
+        return
+    }
     Box(
         modifier
             .then(if (selected) Modifier.border(1.5.dp, Ink.Orange) else Modifier.border(1.dp, Ink.Line))
@@ -201,7 +230,19 @@ fun CountBadge(count: Int, modifier: Modifier = Modifier) {
 /** Orange key chip used in the prompt bar, like a controller button prompt. */
 @Composable
 fun KeyChip(icon: ImageVector? = null, text: String? = null) {
-    Box(Modifier.size(18.dp).background(Ink.Orange, if (Ink.diamond) ChamferShape(5.dp) else RectangleShape), contentAlignment = Alignment.Center) {
+    if (Ink.diamond) {
+        // DIAMOND prompts are outlined keys. Pulse, the faction's own skill, gets a crimson key with a rhombus.
+        val core = icon == IsacIcons.Pulse
+        Box(Modifier.size(20.dp).border(1.5.dp, if (core) Ink.Orange else Ink.White.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+            when {
+                core -> Box(Modifier.size(7.dp).background(Ink.Orange, RhombusShape))
+                icon != null -> Glyph(icon, 12.dp, Ink.White)
+                text != null -> Txt(text, Type.mono(10.sp, Ink.White))
+            }
+        }
+        return
+    }
+    Box(Modifier.size(18.dp).background(Ink.Orange), contentAlignment = Alignment.Center) {
         if (icon != null) Glyph(icon, 12.dp, Ink.OnOrange)
         else if (text != null) Txt(text, Type.title(11.sp, Ink.OnOrange))
     }
@@ -221,7 +262,7 @@ fun PromptBar(prompts: List<Prompt>, modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .background(Color(0x99000000))
-            .drawBehind { drawRect(Ink.Orange.copy(alpha = 0.45f), size = Size(size.width, 1.dp.toPx())) }
+            .drawBehind { drawRect(if (Ink.diamond) Ink.Line else Ink.Orange.copy(alpha = 0.45f), size = Size(size.width, 1.dp.toPx())) }
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
@@ -269,7 +310,9 @@ private fun TabLabel(title: String, on: Boolean, onClick: () -> Unit) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Label(title, color = if (on) Ink.White else Ink.G3, size = 13f)
+        // DIAMOND's wider face needs tighter tracking for four tabs to fit beside the camera.
+        if (Ink.diamond) Txt(title.uppercase(), Type.label(12.sp, if (on) Ink.White else Ink.G3).copy(letterSpacing = 0.08.em), maxLines = 1)
+        else Label(title, color = if (on) Ink.White else Ink.G3, size = 13f)
     }
 }
 
@@ -340,9 +383,11 @@ fun topCutout(): Pair<Dp, Dp>? {
 @Composable
 private fun Bumper(glyph: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(width = 24.dp, height = 20.dp).border(1.dp, Ink.Orange.copy(alpha = 0.8f), if (Ink.diamond) ChamferShape(5.dp) else RectangleShape).tap(onClick),
+        Modifier.size(width = 24.dp, height = 20.dp)
+            .border(1.dp, if (Ink.diamond) Ink.White.copy(alpha = 0.3f) else Ink.Orange.copy(alpha = 0.8f), if (Ink.diamond) ChamferShape(5.dp) else RectangleShape)
+            .tap(onClick),
         contentAlignment = Alignment.Center,
-    ) { Txt(glyph, Type.title(14.sp, Ink.Orange)) }
+    ) { Txt(glyph, Type.title(14.sp, if (Ink.diamond) Ink.White else Ink.Orange)) }
 }
 
 // ---------------------------------------------------------------- bars

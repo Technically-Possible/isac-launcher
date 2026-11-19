@@ -26,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import app.isac.launcher.ui.components.RhombusShape
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -84,7 +86,8 @@ fun LoadoutPage(vm: LauncherViewModel, onOpenInventory: () -> Unit, modifier: Mo
     // Fits the screen exactly: text rows take what they need, the item tiles share the rest by weight.
     Column(modifier.fillMaxSize().padding(horizontal = 14.dp).padding(bottom = 10.dp)) {
         // agent header
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (Ink.diamond) DiamondHeader(vm, s, b, level, apps.count { it.key !in junk })
+        else Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Emblem(34.dp)
             Gap(12.dp)
             Column {
@@ -125,7 +128,13 @@ fun LoadoutPage(vm: LauncherViewModel, onOpenInventory: () -> Unit, modifier: Mo
             }
         }
         val z = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
-        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (Ink.diamond) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(1.dp).background(Ink.Line))
+                Gap(10.dp)
+                Txt(z.format(DateTimeFormatter.ofPattern("EEE // d MMM yyyy", Locale.UK)).uppercase(), Type.mono(10.sp, Ink.G2))
+            }
+        } else Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(22.dp).height(2.dp).background(Ink.Orange))
             Gap(10.dp)
             Label(z.format(DateTimeFormatter.ofPattern("EEEE · d MMMM", Locale.UK)), color = Ink.G2, size = 12f)
@@ -179,7 +188,7 @@ fun LoadoutPage(vm: LauncherViewModel, onOpenInventory: () -> Unit, modifier: Mo
             }
             val remaining = (until - tick).coerceAtLeast(0)
             SkillButton(
-                IsacIcons.Pulse, "PULSE",
+                IsacIcons.Pulse, if (Ink.diamond) "DIAMOND" else "PULSE",
                 if (remaining > 0) "SCANNING" else "HOLD TO TALK",
                 active = false, cooldown = remaining / 6_000f, modifier = Modifier.weight(1f),
                 onLongClick = { vm.listen() },
@@ -198,6 +207,10 @@ private fun WeaponTile(
 ) {
     if (entry == null) {
         EmptySlot(SLOT_NAMES[slot], modifier, onEmpty)
+        return
+    }
+    if (Ink.diamond) {
+        DiamondWeapon(vm, slot, entry, rarity, launches, s, modifier, badge)
         return
     }
     Tile(
@@ -240,7 +253,8 @@ private fun GearTile(
         Column(Modifier.fillMaxSize().padding(horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             AppGlyph(entry, 28.dp, s.iconStyle)
             VGap(8.dp)
-            Label(entry.label, color = Ink.G2, size = 9.5f)
+            if (Ink.diamond) Txt(entry.label.uppercase(), Type.mono(9.sp, Ink.White), maxLines = 1)
+            else Label(entry.label, color = Ink.G2, size = 9.5f)
         }
     }
 }
@@ -267,6 +281,32 @@ private fun SkillButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, sub: String,
     active: Boolean, cooldown: Float, modifier: Modifier, onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
+    if (Ink.diamond) {
+        // DIAMOND: a plate with the skill's icon in a rhombus frame. The DIAMOND core is crimson.
+        val core = icon == IsacIcons.Pulse
+        Row(
+            modifier
+                .heightIn(min = 52.dp)
+                .background(if (active) Ink.Orange.copy(alpha = 0.16f) else Color(0xFF13161B))
+                .border(1.dp, if (active || core) Ink.Orange.copy(alpha = 0.6f) else Ink.White.copy(alpha = 0.16f))
+                .tap(onClick, onLongClick)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(24.dp).border(1.5.dp, if (core || active) Ink.Orange else Ink.White.copy(alpha = 0.6f), RhombusShape))
+                if (core) Box(Modifier.size(8.dp).background(Ink.Orange, RhombusShape))
+                else Glyph(icon, 13.dp, if (active) Ink.Orange else Ink.White)
+            }
+            Gap(10.dp)
+            Column {
+                Txt(title, Type.title(13.sp))
+                VGap(3.dp)
+                Txt(sub, Type.mono(9.sp, when { active -> Ink.Orange; sub == "READY" -> Ink.Cobalt; else -> Ink.G2 }))
+            }
+        }
+        return
+    }
     Row(
         modifier
             .background(Ink.Glass)
@@ -296,6 +336,80 @@ private fun SkillButton(
             Txt(title, Type.title(13.sp))
             VGap(3.dp)
             Label(sub, color = if (active) Ink.Orange else Ink.G2, size = 9f)
+        }
+    }
+}
+
+/** DIAMOND's operator header: callsign in Michroma with the tier bar, and core, power and asset counts. */
+@Composable
+private fun DiamondHeader(vm: LauncherViewModel, s: app.isac.launcher.data.Settings, b: app.isac.launcher.data.Battery, level: Int, assets: Int) {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Emblem(44.dp)
+        Gap(12.dp)
+        Column(Modifier.weight(1f)) {
+            Txt(s.callsign.uppercase(), Type.wide(17.sp), maxLines = 1)
+            VGap(6.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Txt(Lex.level(level), Type.mono(10.sp, Ink.G2))
+                Gap(8.dp)
+                Box(Modifier.width(88.dp).height(3.dp).background(Ink.White.copy(alpha = 0.14f))) {
+                    Box(Modifier.fillMaxWidth(vm.g.exploration.levelProgress()).height(3.dp).background(Ink.Orange))
+                }
+            }
+        }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            listOfNotNull(
+                b.tempC?.let { Triple("CORE", "${it.toInt()}°C", b.hot) },
+                Triple("PWR", "${b.percent}%", b.critical),
+                Triple("ASSETS", "$assets", false),
+            ).forEach { (k, v, warn) ->
+                Row {
+                    Txt(k, Type.mono(10.sp, Ink.G2))
+                    Gap(8.dp)
+                    Txt(v, Type.mono(10.sp, if (warn) Ink.Crit else Ink.White, FontWeight.Bold))
+                }
+            }
+        }
+    }
+}
+
+/** DIAMOND weapon plates: the primary is a bracketed key plate with its icon in a rhombus frame. */
+@Composable
+private fun DiamondWeapon(
+    vm: LauncherViewModel, slot: Int, entry: AppEntry, rarity: Map<String, Rarity>, launches: Int?,
+    s: app.isac.launcher.data.Settings, modifier: Modifier, badge: Int,
+) {
+    val primary = slot == 0
+    Tile(
+        rarity[entry.key] ?: Rarity.STANDARD, modifier, hero = primary, cut = !primary,
+        onClick = { vm.launch(entry) }, onLongClick = { vm.overlay = Overlay.Details(entry) },
+    ) {
+        CountBadge(badge, Modifier.align(Alignment.TopEnd).padding(6.dp))
+        Row(Modifier.fillMaxSize().padding(horizontal = if (primary) 16.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (primary) {
+                Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(32.dp).border(1.5.dp, Ink.Orange, RhombusShape))
+                    AppGlyph(entry, 20.dp, s.iconStyle)
+                }
+            } else {
+                AppGlyph(entry, 22.dp, s.iconStyle)
+            }
+            Gap(if (primary) 14.dp else 10.dp)
+            Column(Modifier.weight(1f)) {
+                Txt(entry.label.uppercase(), Type.title(if (primary) 18.sp else 14.sp), maxLines = 1)
+                VGap(3.dp)
+                Txt(if (primary) "PRIMARY // SLOT A" else SLOT_NAMES[slot], Type.mono(9.sp, Ink.G2))
+            }
+            if (primary) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Txt("S/N 000${slot + 1}", Type.mono(8.5.sp, Ink.G3))
+                    if (launches != null && launches > 0) {
+                        VGap(4.dp)
+                        Txt("$launches", Type.big(26.sp))
+                        Txt("USES / WK", Type.mono(8.sp, Ink.G2))
+                    }
+                }
+            }
         }
     }
 }

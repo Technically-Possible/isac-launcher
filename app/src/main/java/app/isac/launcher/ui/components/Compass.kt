@@ -99,14 +99,22 @@ fun CompassStrip(
         }
 
         // Centre marker and heading readout.
-        val tri = Path().apply {
-            moveTo(mid - 5.dp.toPx(), tickBase + 7.dp.toPx())
-            lineTo(mid + 5.dp.toPx(), tickBase + 7.dp.toPx())
-            lineTo(mid, tickBase + 1.dp.toPx())
-            close()
+        if (Ink.diamond) {
+            // DIAMOND: a rhombus needle sitting on the line.
+            drawPath(rhombusPath(Offset(mid, tickBase), 5.dp.toPx()), Ink.Orange)
+        } else {
+            val tri = Path().apply {
+                moveTo(mid - 5.dp.toPx(), tickBase + 7.dp.toPx())
+                lineTo(mid + 5.dp.toPx(), tickBase + 7.dp.toPx())
+                lineTo(mid, tickBase + 1.dp.toPx())
+                close()
+            }
+            drawPath(tri, Ink.Orange)
         }
-        drawPath(tri, Ink.Orange)
-        val read = measurer.measure("${heading.roundToInt() % 360}° ${compassWord(heading)}", readStyle)
+        val read = measurer.measure(
+            if (Ink.diamond) "HDG ${heading.roundToInt() % 360}°" else "${heading.roundToInt() % 360}° ${compassWord(heading)}",
+            if (Ink.diamond) Type.mono(10.sp, Ink.Orange, androidx.compose.ui.text.font.FontWeight.Bold) else readStyle,
+        )
         drawText(read, topLeft = Offset(mid - read.size.width / 2, size.height - read.size.height + 2.dp.toPx()))
 
         // Fade both ends of the strip.

@@ -138,7 +138,7 @@ fun SettingsScreen(vm: LauncherViewModel) {
             Opt("Haptics", if (s.haptics) "ON" else "OFF", "Short vibrations when you switch tabs, equip or dismantle items, and run a Pulse.",
                 cycle = { update { it.copy(haptics = !it.haptics) } }),
         )
-        1 -> listOf(
+        1 -> listOfNotNull(
             Opt("Faction", s.faction.label,
                 "Division is ISAC: warm orange rings. Black Tusk switches everything to DIAMOND: crimson, angular and cold. Rogue and Emerald Network are still being built. Tap to see them all.",
                 action = { vm.overlay = Overlay.Faction },
@@ -148,6 +148,8 @@ fun SettingsScreen(vm: LauncherViewModel) {
             if (Ink.diamond) Opt("Accent colour", "TACTICAL CRIMSON", "Black Tusk always runs in crimson. Accent colours you've unlocked apply when you're with the Division.")
             else Opt("Accent colour", s.accent.label, "Recolours the whole interface. New colours unlock as you level up.$nextUnlock",
                 cycle = { d -> update { it.copy(accent = Rewards.accents(level).step(it.accent.takeIf { a -> a.level <= level } ?: Accent.ORANGE, d)) } }),
+            if (Ink.diamond) Opt("Optic feeds", if (s.opticMono) "MONO" else "COLOUR", "How DIAMOND shows your photo frames: black-and-white optic feeds, or your photos in full colour.",
+                cycle = { update { it.copy(opticMono = !it.opticMono) } }) else null,
             if (Ink.diamond) Opt("City sky", "VOID GRID", "Black Tusk replaces the city with DIAMOND's void grid. City skies apply when you're with the Division.")
             else Opt("City sky", s.sky.label, "Live follows the real time of day and weather. Other skies unlock as you level up.$nextUnlock",
                 cycle = { d -> update { it.copy(sky = Rewards.skies(level).step(it.sky.takeIf { k -> k.level <= level } ?: Sky.LIVE, d)) } }),
@@ -261,6 +263,16 @@ fun SettingsScreen(vm: LauncherViewModel) {
                 }),
             if (junk.isNotEmpty()) Opt("Junk items", "${junk.size} HIDDEN", "Puts every item you marked as junk back in your inventory.",
                 action = { vm.g.prefs.clearJunk() }) else null,
+            Opt("Updates",
+                vm.update?.let { "INSTALL ${it.version}" } ?: if (vm.updateChecked) "UP TO DATE" else "CHECK NOW",
+                "Checks the GitHub releases page for a newer version. When there is one, tap to download it; Android asks you to confirm the install, and the first time to allow SHD ISAC to install apps. Your setup is kept.",
+                action = {
+                    val u = vm.update
+                    if (u != null) { app.isac.launcher.data.Updates.install(context, u); vm.showToast("Downloading version ${u.version}…") }
+                    else vm.checkForUpdate(manual = true)
+                }),
+            Opt("Check for updates", if (s.checkUpdates) "ON" else "OFF", "Looks for a new release when ISAC starts, at most twice a day. Only GitHub's public releases page is contacted.",
+                cycle = { update { it.copy(checkUpdates = !it.checkUpdates) } }),
             Opt("Android settings", null, "Opens the phone's main settings.", action = { open(AndroidSettings.ACTION_SETTINGS) }),
             Opt("Credits", null, "Who made SHD ISAC, a link to their site, and the open-source projects and free services it's built on.",
                 action = { vm.overlay = Overlay.Credits }),
