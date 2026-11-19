@@ -38,6 +38,7 @@ import app.isac.launcher.data.WidgetSlot
 import app.isac.launcher.data.Accent
 import app.isac.launcher.data.GestureService
 import app.isac.launcher.data.HomePage
+import app.isac.launcher.data.Faction
 import app.isac.launcher.data.IconPack
 import app.isac.launcher.data.Rewards
 import app.isac.launcher.data.Sky
@@ -58,6 +59,7 @@ import app.isac.launcher.ui.components.VGap
 import app.isac.launcher.ui.theme.Ink
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
+import app.isac.launcher.ui.theme.Lex
 
 private class Opt(
     val label: String,
@@ -137,11 +139,17 @@ fun SettingsScreen(vm: LauncherViewModel) {
                 cycle = { update { it.copy(haptics = !it.haptics) } }),
         )
         1 -> listOf(
+            Opt("Faction", s.faction.label,
+                "Division is ISAC: warm orange rings. Black Tusk switches everything to DIAMOND: crimson, angular and cold. Rogue and Emerald Network are still being built. Tap to see them all.",
+                action = { vm.overlay = Overlay.Faction },
+                cycle = { d -> update { it.copy(faction = Faction.entries.filter { f -> f.ready }.step(it.faction, d), factionChosen = true) } }),
             Opt("Home page", s.homePage.label, "What the first tab shows. Intel is your dashboard. Field HUD shows the city with only the essentials on top, like the game's HUD.",
                 cycle = { d -> update { it.copy(homePage = HomePage.entries.toList().step(it.homePage, d)) } }),
-            Opt("Accent colour", s.accent.label, "Recolours the whole interface. New colours unlock as you level up.$nextUnlock",
+            if (Ink.diamond) Opt("Accent colour", "TACTICAL CRIMSON", "Black Tusk always runs in crimson. Accent colours you've unlocked apply when you're with the Division.")
+            else Opt("Accent colour", s.accent.label, "Recolours the whole interface. New colours unlock as you level up.$nextUnlock",
                 cycle = { d -> update { it.copy(accent = Rewards.accents(level).step(it.accent.takeIf { a -> a.level <= level } ?: Accent.ORANGE, d)) } }),
-            Opt("City sky", s.sky.label, "Live follows the real time of day and weather. Other skies unlock as you level up.$nextUnlock",
+            if (Ink.diamond) Opt("City sky", "VOID GRID", "Black Tusk replaces the city with DIAMOND's void grid. City skies apply when you're with the Division.")
+            else Opt("City sky", s.sky.label, "Live follows the real time of day and weather. Other skies unlock as you level up.$nextUnlock",
                 cycle = { d -> update { it.copy(sky = Rewards.skies(level).step(it.sky.takeIf { k -> k.level <= level } ?: Sky.LIVE, d)) } }),
             Opt("Icon pack", packs.firstOrNull { it.pkg == s.iconPack }?.label?.uppercase() ?: if (packs.isEmpty()) "NONE INSTALLED" else "NONE",
                 "Use an icon pack made for Nova or similar launchers. Picking one switches App icons to Icon pack.",
@@ -269,7 +277,7 @@ fun SettingsScreen(vm: LauncherViewModel) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (atTop) 10.dp else 14.dp), verticalAlignment = Alignment.Bottom) {
                 Txt("SETTINGS", Type.title(28.sp))
                 Spacer(Modifier.weight(1f))
-                Label("ISAC 0.2", color = Ink.G2, size = 11f)
+                Label("${Lex.ai} 0.3", color = Ink.G2, size = 11f)
             }
             IsacTabs(tabs, tab, { tab = it; selected = "" }, Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {

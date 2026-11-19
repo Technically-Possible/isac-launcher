@@ -14,8 +14,8 @@ android {
         applicationId = "app.isac.launcher"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.3"
         // The map library ships native code; keep only the phone (arm64) and emulator (x86_64) builds.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }

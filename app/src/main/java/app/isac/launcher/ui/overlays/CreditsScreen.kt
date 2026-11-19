@@ -77,7 +77,7 @@ fun CreditsScreen(vm: LauncherViewModel) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (atTop) 10.dp else 14.dp), verticalAlignment = Alignment.Bottom) {
                 Txt("CREDITS", Type.title(28.sp))
                 Spacer(Modifier.weight(1f))
-                Label("ISAC 0.2", color = Ink.G2, size = 11f)
+                Label("${app.isac.launcher.ui.theme.Lex.ai} 0.3", color = Ink.G2, size = 11f)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                 VGap(14.dp)
@@ -86,7 +86,7 @@ fun CreditsScreen(vm: LauncherViewModel) {
                         Emblem(40.dp)
                         Spacer(Modifier.width(14.dp))
                         Column {
-                            Label("SHD ISAC · CREATED BY", color = Ink.G2, size = 10.5f)
+                            Label("SHD ISAC · DIAMOND · CREATED BY", color = Ink.G2, size = 10.5f)
                             Txt("JENN", Type.title(40.sp))
                         }
                     }

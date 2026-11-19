@@ -63,6 +63,7 @@ import app.isac.launcher.ui.components.Txt
 import app.isac.launcher.ui.components.VGap
 import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 import java.time.Instant
@@ -94,7 +95,7 @@ fun AgentStrip(vm: LauncherViewModel, modifier: Modifier = Modifier) {
         Gap(9.dp)
         Txt(s.callsign.uppercase(), Type.title(14.sp))
         Gap(10.dp)
-        Label("LEVEL $level", color = Ink.G2, size = 10.5f)
+        Label(Lex.level(level), color = Ink.G2, size = 10.5f)
         val stealth by vm.stealth.collectAsStateWithLifecycle()
         if (stealth) {
             Gap(8.dp)
@@ -310,7 +311,7 @@ private fun Directives(vm: LauncherViewModel) {
     val daily by vm.directives.collectAsStateWithLifecycle()
     if (alarm == null && event == null && daily.isEmpty()) return
     Panel(Modifier.fillMaxWidth(), padding = 10.dp) {
-        Label("DIRECTIVES")
+        Label(Lex.directives)
         alarm?.let { a ->
             VGap(6.dp)
             DirectiveLine("Next alarm ${shortTime(a, s.use24h)}", dayWord(a), true)
@@ -526,8 +527,10 @@ private fun MoonDisc(m: Moon.Phase, modifier: Modifier) {
         val r = size.minDimension / 2
         val lit = Color(0xFFE9E5DD)
         val dark = Color(0xFF1C1F23)
-        drawCircle(dark, r)
-        val circle = androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(center, r)) }
+        // Under DIAMOND the moon is drawn inside a rhombus, like every other marker.
+        val circle = if (Ink.diamond) app.isac.launcher.ui.components.rhombusPath(center, r)
+        else androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(center, r)) }
+        drawPath(circle, dark)
         clipPath(circle) {
             val k = m.illumination.toFloat()
             val rightLit = m.waxing

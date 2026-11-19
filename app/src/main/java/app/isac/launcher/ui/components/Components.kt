@@ -39,7 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -103,6 +105,20 @@ fun Panel(
     fill: Color = Ink.Glass,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (Ink.diamond) {
+        // DIAMOND: chamfered glass, a hairline edge that follows the cuts, heavy brackets on the square corners.
+        val shape = ChamferShape(12.dp)
+        Column(
+            modifier
+                .clip(shape)
+                .background(fill, shape)
+                .border(1.dp, Ink.White.copy(alpha = 0.16f), shape)
+                .drawBehind { cornerBrackets(Ink.Orange) }
+                .padding(padding),
+            content = content,
+        )
+        return
+    }
     Column(
         modifier
             .background(fill)
@@ -123,7 +139,7 @@ fun Panel(
 @Composable
 fun SectionHeader(title: String, count: String? = null, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().padding(top = 12.dp, bottom = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(6.dp).background(Ink.Orange))
+        Box(Modifier.size(if (Ink.diamond) 7.dp else 6.dp).background(Ink.Orange, if (Ink.diamond) RhombusShape else RectangleShape))
         Spacer(Modifier.width(8.dp))
         Label(title)
         Spacer(Modifier.width(10.dp))
@@ -164,6 +180,13 @@ fun Tile(
 @Composable
 fun CountBadge(count: Int, modifier: Modifier = Modifier) {
     if (count <= 0) return
+    if (Ink.diamond) {
+        // A crimson rhombus, like a target marker.
+        Box(modifier.size(21.dp).background(Ink.Orange, RhombusShape), contentAlignment = Alignment.Center) {
+            Txt(if (count > 9) "9+" else count.toString(), Type.mono(9.5.sp, Ink.OnOrange, androidx.compose.ui.text.font.FontWeight.Bold))
+        }
+        return
+    }
     Box(
         modifier
             .defaultMinSize(minWidth = 17.dp, minHeight = 17.dp)
@@ -178,7 +201,7 @@ fun CountBadge(count: Int, modifier: Modifier = Modifier) {
 /** Orange key chip used in the prompt bar, like a controller button prompt. */
 @Composable
 fun KeyChip(icon: ImageVector? = null, text: String? = null) {
-    Box(Modifier.size(18.dp).background(Ink.Orange), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(18.dp).background(Ink.Orange, if (Ink.diamond) ChamferShape(5.dp) else RectangleShape), contentAlignment = Alignment.Center) {
         if (icon != null) Glyph(icon, 12.dp, Ink.OnOrange)
         else if (text != null) Txt(text, Type.title(11.sp, Ink.OnOrange))
     }
@@ -238,7 +261,11 @@ private fun TabLabel(title: String, on: Boolean, onClick: () -> Unit) {
             .fillMaxHeight()
             .tap(onClick)
             .drawBehind {
-                if (on) drawRect(Ink.Orange, topLeft = Offset(0f, size.height - 2.5.dp.toPx()), size = Size(size.width, 2.5.dp.toPx()))
+                if (on) {
+                    drawRect(Ink.Orange, topLeft = Offset(0f, size.height - 2.5.dp.toPx()), size = Size(size.width, 2.5.dp.toPx()))
+                    // DIAMOND marks the active tab with a small rhombus on the line.
+                    if (Ink.diamond) drawPath(rhombusPath(Offset(size.width / 2, size.height - 1.25.dp.toPx()), 4.dp.toPx()), Ink.Orange)
+                }
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -313,7 +340,7 @@ fun topCutout(): Pair<Dp, Dp>? {
 @Composable
 private fun Bumper(glyph: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(width = 24.dp, height = 20.dp).border(1.dp, Ink.Orange.copy(alpha = 0.8f)).tap(onClick),
+        Modifier.size(width = 24.dp, height = 20.dp).border(1.dp, Ink.Orange.copy(alpha = 0.8f), if (Ink.diamond) ChamferShape(5.dp) else RectangleShape).tap(onClick),
         contentAlignment = Alignment.Center,
     ) { Txt(glyph, Type.title(14.sp, Ink.Orange)) }
 }
@@ -338,7 +365,22 @@ fun ArmorBar(percent: Int, charging: Boolean, modifier: Modifier = Modifier, seg
                 charging && i == lit -> Ink.Orange.copy(alpha = pulse)
                 else -> Color.White.copy(alpha = 0.14f)
             }
-            Box(Modifier.weight(1f).height(height).background(color))
+            if (Ink.diamond) {
+                // DIAMOND plating: slanted plates instead of square cells.
+                Box(
+                    Modifier.weight(1f).height(height).drawBehind {
+                        val k = size.height * 0.45f
+                        drawPath(
+                            androidx.compose.ui.graphics.Path().apply {
+                                moveTo(k, 0f); lineTo(size.width, 0f); lineTo(size.width - k, size.height); lineTo(0f, size.height); close()
+                            },
+                            color,
+                        )
+                    },
+                )
+            } else {
+                Box(Modifier.weight(1f).height(height).background(color))
+            }
         }
     }
 }
@@ -358,9 +400,63 @@ fun Glyph(icon: ImageVector, size: Dp, color: Color = Ink.White, modifier: Modif
     Image(icon, null, modifier.size(size), colorFilter = ColorFilter.tint(color, BlendMode.SrcIn))
 }
 
-/** The app's emblem: a three-segment ring around a core. */
+/** The faction's emblem: ISAC's ring, or DIAMOND's rhombus in brackets. */
 @Composable
 fun Emblem(size: Dp, color: Color = Ink.Orange, modifier: Modifier = Modifier) {
+    if (Ink.diamond) DiamondEmblem(size, color, Ink.White, modifier) else IsacEmblem(size, color, modifier)
+}
+
+/** DIAMOND's emblem: a rhombus with a solid core, framed by segmented corner brackets. */
+@Composable
+fun DiamondEmblem(size: Dp, color: Color, frame: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.size(size)) {
+        val u = this.size.minDimension / 32f
+        val sw = (1.6f * u).coerceAtLeast(1.2f)
+        val br = androidx.compose.ui.graphics.Path().apply {
+            moveTo(2 * u, 9 * u); lineTo(2 * u, 2 * u); lineTo(9 * u, 2 * u)
+            moveTo(23 * u, 2 * u); lineTo(30 * u, 2 * u); lineTo(30 * u, 9 * u)
+            moveTo(30 * u, 23 * u); lineTo(30 * u, 30 * u); lineTo(23 * u, 30 * u)
+            moveTo(9 * u, 30 * u); lineTo(2 * u, 30 * u); lineTo(2 * u, 23 * u)
+        }
+        drawPath(br, frame, style = Stroke(sw))
+        drawPath(rhombusPath(center, 11 * u), color, style = Stroke(sw))
+        drawPath(rhombusPath(center, 5 * u), color)
+    }
+}
+
+/** For the faction picker: a Rogue mark, ISAC's ring broken by a slash. Not ready yet. */
+@Composable
+fun RogueEmblem(size: Dp, color: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.size(size)) {
+        val stroke = this.size.minDimension * 0.12f
+        val r = this.size.minDimension / 2 - stroke / 2
+        listOf(-70f to 70f, 60f to 80f, 190f to 70f).forEach { (start, sweep) ->
+            drawArc(color, start, sweep, false, Offset(center.x - r, center.y - r), Size(r * 2, r * 2), style = Stroke(stroke))
+        }
+        drawLine(color, Offset(this.size.width * 0.18f, this.size.height * 0.82f), Offset(this.size.width * 0.82f, this.size.height * 0.18f), stroke * 0.8f)
+    }
+}
+
+/** For the faction picker: an Emerald Network mark, an emerald-cut stone. Not ready yet. */
+@Composable
+fun EmeraldEmblem(size: Dp, color: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        fun oct(inset: Float, cut: Float) = androidx.compose.ui.graphics.Path().apply {
+            moveTo(inset + cut, inset); lineTo(w - inset - cut, inset); lineTo(w - inset, inset + cut)
+            lineTo(w - inset, h - inset - cut); lineTo(w - inset - cut, h - inset); lineTo(inset + cut, h - inset)
+            lineTo(inset, h - inset - cut); lineTo(inset, inset + cut); close()
+        }
+        val sw = w * 0.07f
+        drawPath(oct(sw, w * 0.24f), color, style = Stroke(sw))
+        drawPath(oct(w * 0.3f, w * 0.1f), color)
+    }
+}
+
+/** ISAC's emblem: a three-segment ring around a core. */
+@Composable
+fun IsacEmblem(size: Dp, color: Color = Ink.Orange, modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier.size(size)) {
         val stroke = this.size.minDimension * 0.13f
         val r = this.size.minDimension / 2 - stroke / 2
@@ -461,9 +557,17 @@ fun OptionRow(
 
 @Composable
 fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
+    // DIAMOND's selected chip is ice white with a cut corner, like its primary buttons.
+    val d = Ink.diamond
     Box(
         Modifier
-            .then(if (on) Modifier.background(Ink.Orange) else Modifier.border(1.dp, Ink.White.copy(alpha = 0.22f)))
+            .then(
+                when {
+                    on && d -> Modifier.background(Ink.White, ChamferShape(6.dp))
+                    on -> Modifier.background(Ink.Orange)
+                    else -> Modifier.border(1.dp, Ink.White.copy(alpha = 0.22f))
+                },
+            )
             .tap(onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     ) { Label(text, color = if (on) Ink.OnOrange else Ink.G2, size = 10.5f) }

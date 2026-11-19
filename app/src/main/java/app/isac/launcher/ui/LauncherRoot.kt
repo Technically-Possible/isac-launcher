@@ -58,6 +58,8 @@ import app.isac.launcher.ui.overlays.PulseOverlay
 import app.isac.launcher.ui.overlays.VoiceOverlay
 import app.isac.launcher.ui.overlays.LoadingScreen
 import app.isac.launcher.ui.overlays.SettingsScreen
+import app.isac.launcher.ui.overlays.FactionScreen
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.overlays.CreditsScreen
 import app.isac.launcher.ui.overlays.SlotPicker
 import app.isac.launcher.ui.overlays.StashPanel
@@ -72,7 +74,6 @@ import app.isac.launcher.ui.pages.MapPage
 import app.isac.launcher.ui.theme.IsacIcons
 import kotlinx.coroutines.launch
 
-private val BASE_TABS = listOf("INTEL", "LOADOUT", "INVENTORY", "MAP")
 
 /** The sky and weather to draw for the chosen (and unlocked) sky. */
 private fun skyFor(sky: Sky, living: Boolean, live: SkyPhase, liveWeather: Int?): Pair<SkyPhase, Int?> = when (sky) {
@@ -88,7 +89,9 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
     val settings by vm.settings.collectAsStateWithLifecycle()
     val toast by vm.toast.collectAsStateWithLifecycle()
     val hudHome = settings.homePage == HomePage.HUD
-    val TABS = if (hudHome) listOf("HUD") + BASE_TABS.drop(1) else BASE_TABS
+    // Black Tusk calls the inventory the Armory and the map the Sector.
+    val baseTabs = listOf("INTEL", "LOADOUT", Lex.inventory, Lex.map)
+    val TABS = if (hudHome) listOf("HUD") + baseTabs.drop(1) else baseTabs
     val powerSave by vm.powerSave.collectAsStateWithLifecycle()
     val pager = rememberPagerState { TABS.size }
     val scope = rememberCoroutineScope()
@@ -123,6 +126,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
         vm.overlay = when (vm.overlay) {
             is Overlay.SlotPicker -> (vm.overlay as Overlay.SlotPicker).entry.let { Overlay.Details(it) }
             is Overlay.TextInput -> Overlay.Settings
+            Overlay.Faction -> Overlay.Settings
             Overlay.Credits -> Overlay.Settings
             else -> Overlay.None
         }
@@ -201,7 +205,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
                 buildList {
                     if (pager.currentPage != 1) add(Prompt("PULSE", IsacIcons.Pulse, onLongClick = { vm.listen() }) { vm.pulse() })
                     add(Prompt("SETTINGS", IsacIcons.Gear) { vm.overlay = Overlay.Settings })
-                    if (pager.currentPage != 2) add(Prompt("INVENTORY", IsacIcons.Box) { scope.launch { pager.animateScrollToPage(2) } })
+                    if (pager.currentPage != 2) add(Prompt(Lex.inventory, IsacIcons.Box) { scope.launch { pager.animateScrollToPage(2) } })
                 },
                 Modifier.windowInsetsPadding(WindowInsets.navigationBars),
             )
@@ -214,6 +218,7 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
             is Overlay.SlotPicker -> SlotPicker(vm, o.entry)
             Overlay.Stash -> StashPanel(vm)
             Overlay.Settings -> SettingsScreen(vm)
+            Overlay.Faction -> FactionScreen(vm, firstRun = false)
             Overlay.Credits -> CreditsScreen(vm)
             is Overlay.WidgetPicker -> WidgetPicker(vm, o.slot, onPickWidget)
             is Overlay.TextInput -> TextInputPanel(vm, o.kind)
@@ -221,6 +226,9 @@ fun LauncherRoot(vm: LauncherViewModel, onPickWidget: (WidgetSlot, AppWidgetProv
             Overlay.Pulse -> PulseOverlay(vm)
             Overlay.Voice -> VoiceOverlay(vm, TABS)
         }
+
+        // First launch: choose Division, Black Tusk (or see what's coming) before anything else.
+        if (!settings.factionChosen && vm.overlay != Overlay.Faction) FactionScreen(vm, firstRun = true)
 
         AnimatedVisibility(vm.showLoading, enter = fadeIn(), exit = fadeOut()) {
             LoadingScreen(vm, arrival = vm.arrivalScreen) { vm.showLoading = false; vm.arrivalScreen = false }

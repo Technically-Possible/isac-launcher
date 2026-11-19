@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -53,6 +54,10 @@ fun CityBackdrop(
         Box(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x99060708), Color(0x66060708), Color(0xCC060708)))))
         return
     }
+    if (app.isac.launcher.ui.theme.Ink.diamond) {
+        VoidBackdrop(modifier, tilt)
+        return
+    }
     val blurred = mode == Backdrop.CITY_BLURRED
     Box(modifier.fillMaxSize().background(Color(0xFF0C0D0F))) {
         if (blurred) {
@@ -75,6 +80,34 @@ fun CityBackdrop(
             listOf(Color(0x70000000), Color(0x10000000), Color(0x20000000), Color(0xB0000000))
         }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(shade)))
+    }
+}
+
+/**
+ * DIAMOND's ground: void black, a hairline grid, and a faint nested rhombus that drifts with the
+ * phone's tilt. Nothing animates on its own, so it costs nothing while you're not touching the phone.
+ */
+@Composable
+fun VoidBackdrop(modifier: Modifier = Modifier, tilt: State<Pair<Float, Float>>? = null) {
+    Box(modifier.fillMaxSize().background(Color(0xFF0B0D10))) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val step = 24.dp.toPx()
+            val grid = Color(0x09F2F5F8)
+            var x = 0f
+            while (x < size.width) { drawLine(grid, Offset(x, 0f), Offset(x, size.height), 1f); x += step }
+            var y = 0f
+            while (y < size.height) { drawLine(grid, Offset(0f, y), Offset(size.width, y), 1f); y += step }
+        }
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize().parallax(tilt, 18.dp)) {
+            val c = Offset(size.width * 0.62f, size.height * 0.58f)
+            val r = size.width * 0.78f
+            val line = Color(0x12F2F5F8)
+            drawPath(rhombusPath(c, r), line, style = Stroke(1.dp.toPx()))
+            drawPath(rhombusPath(c, r * 0.68f), line, style = Stroke(1.dp.toPx()))
+            drawPath(rhombusPath(c, r * 0.36f), Color(0x1CF22D41), style = Stroke(1.dp.toPx()))
+            drawLine(Color(0x0CF2F5F8), Offset(0f, c.y), Offset(size.width, c.y), 1f)
+        }
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x00000000), Color(0x00000000), Color(0x99050608)))))
     }
 }
 

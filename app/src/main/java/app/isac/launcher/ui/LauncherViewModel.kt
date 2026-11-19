@@ -17,6 +17,8 @@ import app.isac.launcher.data.IconSource
 import app.isac.launcher.data.Rewards
 import app.isac.launcher.data.powerSaveFlow
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.theme.Lex
+import app.isac.launcher.ui.theme.skin
 import app.isac.launcher.data.City
 import app.isac.launcher.data.ExploreEvent
 import app.isac.launcher.data.Tracking
@@ -54,6 +56,7 @@ sealed interface Overlay {
     data class SlotPicker(val entry: AppEntry) : Overlay
     data object Stash : Overlay
     data object Settings : Overlay
+    data object Faction : Overlay
     data object Credits : Overlay
     data class WidgetPicker(val slot: WidgetSlot) : Overlay
     data class TextInput(val kind: InputKind) : Overlay
@@ -206,8 +209,8 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         // Stealth: ISAC reacts when Do Not Disturb turns on or off (e.g. Pixel's Flip to Shhh).
         viewModelScope.launch {
             stealth.drop(1).collect { on ->
-                showToast(if (on) "Going dark." else "Back online.")
-                if (settings.value.isacVoice && on) g.isac.speak("Going dark.")
+                showToast(if (Ink.diamond) (if (on) "Stealth engaged." else "Link restored.") else (if (on) "Going dark." else "Back online."))
+                if (settings.value.isacVoice && on) g.isac.speak(if (Ink.diamond) "Stealth engaged." else "Going dark.")
             }
         }
         // Overheat warning, once each time the phone crosses the threshold.
@@ -239,7 +242,12 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         // The chosen accent colour applies everywhere at once.
-        viewModelScope.launch { settings.collect { Ink.setAccent(it.accent.argb) } }
+        viewModelScope.launch {
+            settings.collect {
+                Ink.setAccent(it.accent.argb)
+                Ink.setSkin(it.faction.skin())
+            }
+        }
         // Load every icon in the background so lists don't fill in while scrolling.
         viewModelScope.launch {
             combine(apps, settings) { list, s -> list to IconSource.of(s.iconStyle, s.iconPack) }.collect { (list, src) -> g.icons.prewarm(list, src) }
@@ -465,26 +473,43 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     private fun announceCity(city: City) {
         g.prefs.announcedCities = g.exploration.cities.value.size
         g.haptics.reward()
-        showToast("New area discovered. ${city.name} added to your intel.",
-            banner = Banner("AREA UNLOCKED", city.name.uppercase(), "+150 XP · New area added to your intel"))
-        if (settings.value.isacVoice) g.isac.speak("New area discovered. ${city.name} added to your intel.")
+        val line = if (Ink.diamond) "Sector logged: ${city.name}." else "New area discovered. ${city.name} added to your intel."
+        showToast(line,
+            banner = Banner(if (Ink.diamond) "SECTOR LOGGED" else "AREA UNLOCKED", city.name.uppercase(), "+150 XP · New area added to your intel"))
+        if (settings.value.isacVoice) g.isac.speak(line)
     }
 
     private fun announceLevel(level: Int) {
         g.prefs.announcedLevel = level
         g.haptics.reward()
         val unlocks = Rewards.unlockedAt(level)
-        showToast("Level up. You are now level $level.",
-            banner = Banner("LEVEL UP", "LEVEL $level", if (unlocks.isEmpty()) "Exploration rank increased" else "Unlocked: ${unlocks.joinToString(", ")}"))
-        if (settings.value.isacVoice) g.isac.speak("Level up. You are now level $level.")
+        val line = if (Ink.diamond) "Tier increased. Tier $level." else "Level up. You are now level $level."
+        showToast(line,
+            banner = Banner(if (Ink.diamond) "TIER UP" else "LEVEL UP", Lex.level(level), if (unlocks.isEmpty()) "Exploration rank increased" else "Unlocked: ${unlocks.joinToString(", ")}"))
+        if (settings.value.isacVoice) g.isac.speak(line)
+    }
+
+    private fun homeLine() = if (Ink.diamond) "Base of Operations. Link secure." else "Welcome back to the Base of Operations."
+
+    /** Saves the allegiance chosen on the picker, then replays the loading screen in the new look. */
+    fun chooseFaction(f: app.isac.launcher.data.Faction) {
+        if (!f.ready) return
+        g.prefs.update { it.copy(faction = f, factionChosen = true) }
+        Ink.setSkin(f.skin())
+        g.haptics.reward()
+        overlay = Overlay.None
+        arrivalScreen = false
+        showLoading = true
+        if (settings.value.isacVoice) g.isac.speak(if (f == app.isac.launcher.data.Faction.BLACK_TUSK) "DIAMOND online." else "ISAC online.")
     }
 
     private fun announceArrival() {
         g.prefs.pendingArrival = false
         g.haptics.confirm()
-        showToast("Welcome back to the Base of Operations.",
-            banner = Banner("WELCOME BACK", "BASE OF OPERATIONS", "Secure. Good to have you home, Agent"))
-        if (settings.value.isacVoice) g.isac.speak("Welcome back to the Base of Operations.")
+        showToast(homeLine(),
+            banner = Banner(if (Ink.diamond) "LINK RESTORED" else "WELCOME BACK", "BASE OF OPERATIONS",
+                if (Ink.diamond) "Perimeter secure, Operator" else "Secure. Good to have you home, Agent"))
+        if (settings.value.isacVoice) g.isac.speak(homeLine())
     }
 
     /** Announces anything that happened while ISAC wasn't on screen. */
@@ -493,7 +518,7 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
             g.prefs.pendingArrival = false
             arrivalScreen = true
             showLoading = true
-            if (settings.value.isacVoice) g.isac.speak("Welcome back to the Base of Operations.")
+            if (settings.value.isacVoice) g.isac.speak(homeLine())
         }
         val cities = g.exploration.cities.value
         if (cities.size > g.prefs.announcedCities) announceCity(cities.maxBy { it.firstVisit })

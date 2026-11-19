@@ -73,6 +73,9 @@ import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.components.topInsets
 import app.isac.launcher.ui.pages.shortTime
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.components.dot
+import app.isac.launcher.ui.components.ring
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 import kotlinx.coroutines.delay
@@ -109,7 +112,7 @@ fun PulseOverlay(vm: LauncherViewModel) {
         Box(Modifier.fillMaxSize().background(Color(0x66000000)))
         Column(Modifier.fillMaxSize().windowInsetsPadding(topInsets())) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.Bottom) {
-                Txt(if (trackingAddress == null) "PULSE" else "LOCATOR", Type.title(28.sp))
+                Txt(if (trackingAddress == null) Lex.pulse else "LOCATOR", Type.title(28.sp))
                 Spacer(Modifier.weight(1f))
                 Label(
                     when {
@@ -200,11 +203,17 @@ private fun Radar(signals: List<Signal>, scanning: Boolean, modifier: Modifier) 
         val c = center
         fun radiusFor(m: Float) = r * sqrt((m / 20f).coerceIn(0f, 1f))
         listOf(5f, 10f, 20f).forEach { m ->
-            drawCircle(Ink.Orange.copy(alpha = 0.35f), radiusFor(m), c, style = Stroke(1.dp.toPx()))
+            ring(Ink.Orange.copy(alpha = 0.35f), radiusFor(m), c)
         }
         drawLine(Ink.White.copy(alpha = 0.12f), Offset(c.x - r, c.y), Offset(c.x + r, c.y))
         drawLine(Ink.White.copy(alpha = 0.12f), Offset(c.x, c.y - r), Offset(c.x, c.y + r))
-        if (scanning) {
+        if (scanning && Ink.diamond) {
+            // DIAMOND scans with a laser line that snaps round in 15 degree steps.
+            rotate((sweep / 15f).toInt() * 15f, c) {
+                drawLine(Ink.Orange, c, Offset(c.x + r, c.y), strokeWidth = 2.dp.toPx())
+                drawLine(Ink.Orange.copy(alpha = 0.25f), c, Offset(c.x + r * 0.96f, c.y - r * 0.26f), strokeWidth = 1.dp.toPx())
+            }
+        } else if (scanning) {
             rotate(sweep, c) {
                 drawArc(
                     Brush.sweepGradient(0.80f to Color.Transparent, 1f to Ink.Orange.copy(alpha = 0.45f), center = c),
@@ -220,8 +229,9 @@ private fun Radar(signals: List<Signal>, scanning: Boolean, modifier: Modifier) 
             val rr = radiusFor(sig.meters)
             val p = Offset(c.x + (rr * cos(angle)).toFloat(), c.y + (rr * sin(angle)).toFloat())
             val known = sig.bonded || sig.name != null
-            drawCircle((if (known) Ink.Orange else Ink.White).copy(alpha = 0.25f), 8.dp.toPx(), p)
-            drawCircle(if (known) Ink.Orange else Ink.White, 3.5.dp.toPx(), p)
+            if (Ink.diamond) ring((if (known) Ink.Orange else Ink.White).copy(alpha = 0.5f), 8.dp.toPx(), p)
+            else drawCircle((if (known) Ink.Orange else Ink.White).copy(alpha = 0.25f), 8.dp.toPx(), p)
+            dot(if (known) Ink.Orange else Ink.White, 3.5.dp.toPx(), p)
         }
         val tri = Path().apply {
             moveTo(c.x, c.y - 9.dp.toPx()); lineTo(c.x + 6.dp.toPx(), c.y + 6.dp.toPx()); lineTo(c.x - 6.dp.toPx(), c.y + 6.dp.toPx()); close()
@@ -312,7 +322,7 @@ private fun Locator(vm: LauncherViewModel, target: Signal?, address: String, onS
                         topLeft = Offset(center.x - r, center.y - r), size = Size(2 * r, 2 * r), style = Stroke(sw),
                     )
                 }
-                drawCircle(Ink.Orange.copy(alpha = 0.25f), r * 0.62f, style = Stroke(1.dp.toPx()))
+                ring(Ink.Orange.copy(alpha = 0.25f), r * 0.62f)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Txt(if (lost || meters == null) "—" else distanceText(meters), Type.big(46.sp))
@@ -432,7 +442,7 @@ fun VoiceOverlay(vm: LauncherViewModel, tabs: List<String>) {
     Scrim({ vm.overlay = Overlay.None }) {
         Panel(Modifier.align(Alignment.Center).padding(horizontal = 20.dp).fillMaxWidth().tap({}), padding = 18.dp, fill = Ink.GlassDeep) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Label(if (listening) "ISAC · LISTENING" else "ISAC")
+                Label(if (listening) "${Lex.ai} · LISTENING" else Lex.ai)
                 Spacer(Modifier.weight(1f))
                 if (listening) LevelBars(level)
             }

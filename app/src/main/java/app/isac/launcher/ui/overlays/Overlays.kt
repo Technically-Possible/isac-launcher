@@ -80,6 +80,7 @@ import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.pages.InventoryItem
 import app.isac.launcher.ui.pages.SLOT_NAMES
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 import java.time.Instant
@@ -146,7 +147,7 @@ fun ItemDetails(vm: LauncherViewModel, entry: AppEntry) {
                 Box(Modifier.fillMaxWidth().height(3.dp).background(rc).align(Alignment.TopStart))
                 Column(Modifier.padding(16.dp)) {
                     Row {
-                        Label(r.label, color = rc, size = 11f)
+                        Label(Lex.rarity(r), color = rc, size = 11f)
                         if (entry.category.label.isNotEmpty()) Label("  ·  ${entry.category.label}", color = Ink.G2, size = 11f)
                     }
                     VGap(6.dp)
@@ -179,9 +180,9 @@ fun ItemDetails(vm: LauncherViewModel, entry: AppEntry) {
                 val (tName, tDesc) = talent(r, u?.daysUsed7d ?: 0, usage.hasAccess)
                 Label("TALENT", color = Ink.Orange, size = 9.5f)
                 VGap(4.dp)
-                Txt(tName, Type.title(14.sp))
+                Txt(Lex.adapt(tName), Type.title(14.sp))
                 VGap(2.dp)
-                Txt(tDesc, Type.body(12.5.sp, Ink.G2))
+                Txt(Lex.adapt(tDesc), Type.body(12.5.sp, Ink.G2))
             }
             // actions
             Column(Modifier.fillMaxWidth().background(Color(0xF0090A0B))) {
@@ -195,7 +196,7 @@ fun ItemDetails(vm: LauncherViewModel, entry: AppEntry) {
                 Action("▤", if (entry.key in stash) "REMOVE FROM ${s.stashName.uppercase()}" else "ADD TO ${s.stashName.uppercase()}", "App folder") {
                     vm.g.prefs.toggleStash(entry.key)
                 }
-                Action("−", if (entry.key in junk) "UNMARK JUNK" else "MARK AS JUNK", if (entry.key in junk) "Show in inventory" else "Hide from inventory") {
+                Action("−", if (entry.key in junk) "UNMARK ${Lex.junk}" else "MARK AS ${Lex.junk}", if (entry.key in junk) "Show in ${Lex.inventory.lowercase()}" else "Hide from ${Lex.inventory.lowercase()}") {
                     vm.g.prefs.toggleJunk(entry.key); close()
                 }
                 Action("i", "APP INFO", "Android settings") { vm.g.apps.openAppInfo(entry); close() }
@@ -490,26 +491,46 @@ fun LoadingScreen(vm: LauncherViewModel, arrival: Boolean = false, onDone: () ->
         CityBackdrop(Backdrop.CITY_BLURRED)
         Box(Modifier.fillMaxSize().background(Color(0x66000000)))
         Row(Modifier.padding(start = 28.dp, top = 64.dp), verticalAlignment = Alignment.CenterVertically) {
-            Emblem(22.dp); Gap(10.dp); Label("SHD ISAC", color = Ink.White, size = 13f)
+            Emblem(22.dp); Gap(10.dp); Label(Lex.brand, color = Ink.White, size = 13f)
         }
         Column(Modifier.align(Alignment.CenterStart).padding(horizontal = 28.dp)) {
-            Label(if (arrival) "ARRIVED" else "DESTINATION", color = if (arrival) Ink.Orange else Ink.G2, size = 11f)
+            Label(if (arrival) (if (Ink.diamond) "LINK RESTORED" else "ARRIVED") else Lex.destination, color = if (arrival) Ink.Orange else Ink.G2, size = 11f)
             VGap(10.dp)
             Txt("BASE OF\nOPERATIONS", Type.title(42.sp))
             VGap(16.dp)
             Box(Modifier.width(56.dp).height(3.dp).background(Ink.Orange))
             VGap(12.dp)
-            val agent = "Agent ${s.callsign.lowercase().replaceFirstChar { it.uppercase() }}"
-            Txt(if (arrival) "Secure. Welcome back, $agent." else "$agent · Level $level", Type.body(15.sp, Ink.G2))
+            val agent = "${Lex.agent} ${s.callsign.lowercase().replaceFirstChar { it.uppercase() }}"
+            val home = if (Ink.diamond) "Perimeter secure. Welcome back, $agent." else "Secure. Welcome back, $agent."
+            Txt(if (arrival) home else "$agent · ${Lex.levelWord} $level", Type.body(15.sp, Ink.G2))
         }
         Row(Modifier.align(Alignment.BottomStart).padding(start = 28.dp, end = 28.dp, bottom = 120.dp)) {
             Box(Modifier.width(3.dp).height(58.dp).background(Ink.Orange))
             Gap(12.dp)
             Column {
-                Label("TIP")
+                Label(if (Ink.diamond) "DIRECTIVE" else "TIP")
                 VGap(4.dp)
-                Txt(tip, Type.body(15.sp))
+                Txt(Lex.adapt(tip), Type.body(15.sp))
             }
+        }
+        if (Ink.diamond) {
+            // DIAMOND syncs in hard steps rather than spinning.
+            val step by rememberInfiniteTransition(label = "sync").animateFloat(
+                0f, 13f, infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart), label = "syncA",
+            )
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 28.dp, end = 28.dp, bottom = 56.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(9.dp).background(Ink.Orange, app.isac.launcher.ui.components.RhombusShape))
+                    Gap(8.dp)
+                    Label("D.I.A.M.O.N.D.", color = Ink.White, size = 11f, modifier = Modifier.weight(1f))
+                    Txt("SYNCING", Type.mono(10.sp, Ink.G2))
+                }
+                VGap(8.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    repeat(12) { i -> Box(Modifier.weight(1f).height(7.dp).background(if (i < step.toInt()) Ink.Orange else Ink.Line)) }
+                }
+            }
+            return@Box
         }
         Row(Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 60.dp), verticalAlignment = Alignment.CenterVertically) {
             Canvas(Modifier.size(22.dp)) {

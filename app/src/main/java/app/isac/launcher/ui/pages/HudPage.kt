@@ -44,6 +44,8 @@ import app.isac.launcher.ui.components.Txt
 import app.isac.launcher.ui.components.VGap
 import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.components.markerShape
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 import java.time.Instant
@@ -89,7 +91,7 @@ fun HudPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(7.dp).background(Ink.Orange))
                         Gap(8.dp)
-                        Label("DIRECTIVES", size = 11f)
+                        Label(Lex.directives, size = 11f)
                     }
                     alarm?.let { Objective("Next alarm ${shortTime(it, s.use24h)}", null, true) }
                     event?.let { Objective(it.title, shortTime(it.begin, s.use24h), false) }
@@ -138,7 +140,7 @@ fun HudPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
                 ArmorBar(b.percent, b.charging, Modifier.weight(1f), segments = 8, height = 8.dp)
             }
             VGap(5.dp)
-            Label("ARMOR ${b.percent}%", color = if (b.critical) Ink.Crit else Ink.G2, size = 10f)
+            Label("${Lex.armor} ${b.percent}%", color = if (b.critical) Ink.Crit else Ink.G2, size = 10f)
         }
 
         // Clock, where the ammo counter would be
@@ -174,8 +176,8 @@ private fun Objective(title: String, sub: String?, bright: Boolean, done: Boolea
 @Composable
 private fun SkillDot(icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).background(if (active) Ink.Orange else Color(0x99000000), CircleShape)
-            .border(1.5.dp, Ink.White.copy(alpha = 0.6f), CircleShape).tap(onClick, onLong),
+        Modifier.size(44.dp).background(if (active) Ink.Orange else Color(0x99000000), markerShape())
+            .border(1.5.dp, Ink.White.copy(alpha = 0.6f), markerShape()).tap(onClick, onLong),
         contentAlignment = Alignment.Center,
     ) { Glyph(icon, 20.dp, if (active) Ink.OnOrange else Ink.White) }
 }

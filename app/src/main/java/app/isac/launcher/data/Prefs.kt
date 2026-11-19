@@ -12,6 +12,14 @@ enum class Backdrop(val label: String) {
     CITY_BLURRED("CITY · BLURRED"), CITY("CITY"), WALLPAPER("YOUR WALLPAPER")
 }
 
+/**
+ * Who you're playing as. It sets the whole look: Division is ISAC (orange rings), Black Tusk is
+ * DIAMOND (crimson, angular). Rogue and Emerald Network are shown on the picker but aren't ready yet.
+ */
+enum class Faction(val label: String, val ready: Boolean) {
+    DIVISION("DIVISION", true), BLACK_TUSK("BLACK TUSK", true), ROGUE("ROGUE", false), EMERALD("EMERALD NETWORK", false),
+}
+
 /** Which page the Home button and a fresh start open on. */
 enum class HomePage(val label: String) { INTEL("INTEL"), HUD("FIELD HUD") }
 
@@ -47,6 +55,9 @@ data class Settings(
     /** Unlocked by levelling up. */
     val accent: Accent = Accent.ORANGE,
     val sky: Sky = Sky.LIVE,
+    val faction: Faction = Faction.DIVISION,
+    /** False until the allegiance picker has been answered once. */
+    val factionChosen: Boolean = false,
 )
 
 /** Number of loadout slots: 3 weapons followed by 6 gear. */
@@ -83,6 +94,8 @@ class Prefs(context: Context) {
             putBoolean("morningBriefing", next.morningBriefing)
             putString("accent", next.accent.name)
             putString("sky", next.sky.name)
+            putString("faction", next.faction.name)
+            putBoolean("factionChosen", next.factionChosen)
         }
         _settings.value = next
     }
@@ -112,6 +125,8 @@ class Prefs(context: Context) {
             morningBriefing = sp.getBoolean("morningBriefing", d.morningBriefing),
             accent = enumOr(sp.getString("accent", null), d.accent),
             sky = enumOr(sp.getString("sky", null), d.sky),
+            faction = enumOr<Faction>(sp.getString("faction", null), d.faction).takeIf { it.ready } ?: Faction.DIVISION,
+            factionChosen = sp.getBoolean("factionChosen", d.factionChosen),
         )
     }
 

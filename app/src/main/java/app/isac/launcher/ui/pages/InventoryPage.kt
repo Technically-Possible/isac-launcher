@@ -73,6 +73,7 @@ import app.isac.launcher.ui.components.Txt
 import app.isac.launcher.ui.components.VGap
 import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 
@@ -153,12 +154,12 @@ fun InventoryPage(vm: LauncherViewModel, modifier: Modifier = Modifier) {
 
     Column(modifier.fillMaxSize().padding(horizontal = 14.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Bottom) {
-            Txt("INVENTORY", Type.title(28.sp))
+            Txt(Lex.inventory, Type.title(28.sp))
             Spacer(Modifier.weight(1f))
             Label("${apps.count { it.key !in junk }} ITEMS", color = Ink.G2, size = 11f)
         }
         Row(Modifier.padding(top = 12.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            filters.forEach { f -> Chip(f.label, f == filter) { filter = f } }
+            filters.forEach { f -> Chip(if (f == Filter.JUNK) Lex.junk else f.label, f == filter) { filter = f } }
         }
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(

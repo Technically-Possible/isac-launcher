@@ -52,6 +52,7 @@ import app.isac.launcher.ui.components.Txt
 import app.isac.launcher.ui.components.VGap
 import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +109,7 @@ fun MapPage(vm: LauncherViewModel, active: Boolean, modifier: Modifier = Modifie
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Label("EXPLORATION")
                 Spacer(Modifier.weight(1f))
-                Label("LEVEL $level", color = Ink.White, size = 11f)
+                Label(Lex.level(level), color = Ink.White, size = 11f)
             }
             VGap(6.dp)
             Box(Modifier.fillMaxWidth().height(3.dp).background(Ink.White.copy(alpha = 0.15f))) {
@@ -271,7 +272,6 @@ private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, showAccess: Boo
             m.uiSettings.isLogoEnabled = false
             m.uiSettings.isCompassEnabled = false
             m.uiSettings.setAttributionMargins(16, 0, 0, 230)
-            m.setStyle(Style.Builder().fromJson(ISAC_MAP_STYLE.replace("#FF6D10", vm.settings.value.accent.hex))) { s -> style = s }
             m.addOnMapClickListener { point ->
                 val hit = m.queryRenderedFeatures(m.projection.toScreenLocation(point), "caches", "access").firstOrNull()
                 onTap(hit?.getNumberProperty("pid")?.toLong()?.let { vm.g.places.get(it) })
@@ -286,6 +286,14 @@ private fun ExplorationMap(vm: LauncherViewModel, recenter: Int, showAccess: Boo
             val fix = vm.g.prefs.lastFix ?: base
             if (fix != null) m.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(fix.first, fix.second), 14.0))
         }
+    }
+    // The style follows the look: reloaded when the faction or accent changes. Everything that
+    // fills the style's sources re-runs when `style` changes.
+    val diamond = Ink.diamond
+    val accentHex = vm.settings.collectAsStateWithLifecycle().value.accent.hex
+    LaunchedEffect(map, diamond, accentHex) {
+        val m = map ?: return@LaunchedEffect
+        m.setStyle(Style.Builder().fromJson(mapStyleFor(diamond, accentHex))) { s -> style = s }
     }
     // Fog of war, redrawn whenever new ground is uncovered.
     LaunchedEffect(style, version) {

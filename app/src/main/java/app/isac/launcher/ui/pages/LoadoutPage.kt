@@ -52,6 +52,9 @@ import app.isac.launcher.ui.components.Txt
 import app.isac.launcher.ui.components.VGap
 import app.isac.launcher.ui.components.tap
 import app.isac.launcher.ui.theme.Ink
+import app.isac.launcher.ui.components.ring
+import app.isac.launcher.ui.components.markerShape
+import app.isac.launcher.ui.theme.Lex
 import app.isac.launcher.ui.theme.IsacIcons
 import app.isac.launcher.ui.theme.Type
 import kotlinx.coroutines.delay
@@ -88,7 +91,7 @@ fun LoadoutPage(vm: LauncherViewModel, onOpenInventory: () -> Unit, modifier: Mo
                 Txt(s.callsign.uppercase(), Type.title(19.sp))
                 VGap(4.dp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Label("LEVEL $level", color = Ink.G2, size = 10.5f)
+                    Label(Lex.level(level), color = Ink.G2, size = 10.5f)
                     Gap(8.dp)
                     // XP towards the next level, from exploring.
                     Box(Modifier.width(72.dp).height(3.dp).background(Ink.White.copy(alpha = 0.2f))) {
@@ -130,7 +133,7 @@ fun LoadoutPage(vm: LauncherViewModel, onOpenInventory: () -> Unit, modifier: Mo
 
         // armor
         Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Label("ARMOR", color = Ink.G2, size = 11f)
+            Label(Lex.armor, color = Ink.G2, size = 11f)
             Gap(10.dp)
             ArmorBar(b.percent, b.charging, Modifier.weight(1f), segments = 10, height = 9.dp)
             Gap(10.dp)
@@ -275,10 +278,10 @@ private fun SkillButton(
         Box(
             Modifier
                 .size(38.dp)
-                .background(if (active) Ink.Orange else Ink.Ground.copy(alpha = 0.6f), CircleShape)
+                .background(if (active) Ink.Orange else Ink.Ground.copy(alpha = 0.6f), markerShape())
                 .drawBehind {
                     val sw = 2.dp.toPx()
-                    drawCircle(Ink.White.copy(alpha = if (cooldown > 0) 0.2f else 0.6f), style = Stroke(sw), radius = size.minDimension / 2 - sw / 2)
+                    ring(Ink.White.copy(alpha = if (cooldown > 0) 0.2f else 0.6f), size.minDimension / 2 - sw / 2, width = sw)
                     if (cooldown > 0) {
                         drawArc(
                             Ink.Orange, -90f, 360f * (1 - cooldown), false,

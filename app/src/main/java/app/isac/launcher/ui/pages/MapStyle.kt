@@ -92,3 +92,21 @@ internal val ISAC_MAP_STYLE = """
 
 internal fun pointJson(lat: Double, lon: Double) =
     """{"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[$lon,$lat]}}"""
+
+/** DIAMOND's map: void black ground, steel roads, crimson explored edge and caches. */
+private val DIAMOND_COLOURS = mapOf(
+    "#26313D" to "#12151A", "#2A3541" to "#15191E", "#28372F" to "#15191E", "#2A3B32" to "#171B21",
+    "#111C27" to "#06080B", "#313D4A" to "#1B2026", "#44525F" to "#2C333C", "#4B5866" to "#3A414B",
+    "#6A7887" to "#59616D", "#8A97A4" to "#8B93A0", "#55606C" to "#3A414B", "#5C4A3D" to "#4A2A30",
+    "#A9B4BE" to "#B8C0CA", "#0A0E13" to "#050608", "#D8DDE2" to "#F2F5F8", "#3B8FE6" to "#00A8E8",
+    "#F0C23B" to "#FF9E00", "#5FD08A" to "#F2F5F8", "#CFE9D8" to "#CDEBF7", "#FFB27A" to "#FF8A96",
+    "#F2F2F0" to "#F2F5F8", "#0B0C0D" to "#0B0D10",
+)
+
+/** The map style for the current look, with the explored edge and caches in the accent colour. */
+internal fun mapStyleFor(diamond: Boolean, accentHex: String): String {
+    if (!diamond) return ISAC_MAP_STYLE.replace("#FF6D10", accentHex)
+    var s = ISAC_MAP_STYLE.replace("#FF6D10", "#F22D41")
+    DIAMOND_COLOURS.forEach { (from, to) -> s = s.replace(from, to) }
+    return s
+}
