@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png" alt="SHD ISAC: an Android launcher inspired by the menus and HUD of The Division 2, with Division and Black Tusk looks" width="100%">
+  <img src="docs/banner-v1.2.png" alt="SHD ISAC: an Android launcher inspired by the menus and HUD of The Division 2, with Division and Black Tusk looks" width="100%">
 </p>
 
 <h3 align="center">Turn your phone into an agent's ISAC.</h3>
